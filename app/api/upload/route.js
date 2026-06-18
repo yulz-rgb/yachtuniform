@@ -1,6 +1,7 @@
 import { getActiveContext } from '../../../lib/auth';
 import { uploadBlob } from '../../../lib/blob';
 import { hasBlob, backendEnabled } from '../../../lib/config';
+import { can } from '../../../lib/permissions';
 
 export async function POST(req) {
   if (!hasBlob) {
@@ -9,6 +10,9 @@ export async function POST(req) {
   if (backendEnabled) {
     const ctx = await getActiveContext();
     if (!ctx) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!can(ctx.role, 'product.upload')) {
+      return Response.json({ error: 'Insufficient permissions to upload images' }, { status: 403 });
+    }
   }
   const form = await req.formData();
   const file = form.get('file');

@@ -41,6 +41,14 @@ Confirm Ready at https://yachtuniform.vercel.app and log the deployment URL in `
 - Run every step in `docs/SMOKE_TEST.md` against production.
 - Tag the release: `git tag -a v1.0.0 -m "Launch" && git push --tags`.
 
+## Branding & trust (do before public launch)
+- The app now brands the sign-in/sign-up screens (value panel + navy/gold Clerk theme).
+- The "Development mode" badge and the Clerk instance name come from using a Clerk
+  **development** instance. To remove them, in the Clerk dashboard create/promote a
+  **production** instance, set its display name to "Yacht Uniform Lookbook", upload the
+  logo, then update `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` in Vercel
+  (production env) and redeploy. No code change is required.
+
 ## Notes / known limitations
 - Workspace saves use a transactional replace-all per yacht (fine for the small per-yacht
   datasets here; not designed for high-concurrency simultaneous editing).

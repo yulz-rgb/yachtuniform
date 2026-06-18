@@ -9,18 +9,22 @@ export function GarmentShape({ product, showLabel = true }) {
   const stroke = product.accent || '#0b1f3a';
   const hint = product.imageHint || product.category;
   const label = product.name?.split(' ').slice(0, 2).join(' ');
+  const imageOverlay = product.imageUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img className="garment-photo" src={product.imageUrl} alt={product.name || ''} />
+  ) : null;
   const shapes = {
-    dress: <div className="garment dress" style={{ background: fill, borderColor: stroke }}>{showLabel && <span>{label}</span>}</div>,
-    shirt: <div className="garment shirt" style={{ background: fill, borderColor: stroke }}>{showLabel && <span>{label}</span>}</div>,
-    jacket: <div className="garment jacket" style={{ background: fill, borderColor: stroke }}>{showLabel && <span>{label}</span>}</div>,
-    shorts: <div className="garment shorts" style={{ background: fill, borderColor: stroke }}>{showLabel && <span>{label}</span>}</div>,
-    skort: <div className="garment skort" style={{ background: fill, borderColor: stroke }}>{showLabel && <span>{label}</span>}</div>,
-    trousers: <div className="garment trousers" style={{ background: fill, borderColor: stroke }}>{showLabel && <span>{label}</span>}</div>,
-    shoes: <><div className="garment shoe left" style={{ background: fill, borderColor: stroke }} /><div className="garment shoe right" style={{ background: fill, borderColor: stroke }} /></>,
-    cap: <div className="garment cap" style={{ background: fill, borderColor: stroke }} />,
+    dress: <div className="garment dress" style={{ background: fill, borderColor: stroke }}>{imageOverlay}{showLabel && !product.imageUrl && <span>{label}</span>}</div>,
+    shirt: <div className="garment shirt" style={{ background: fill, borderColor: stroke }}>{imageOverlay}{showLabel && !product.imageUrl && <span>{label}</span>}</div>,
+    jacket: <div className="garment jacket" style={{ background: fill, borderColor: stroke }}>{imageOverlay}{showLabel && !product.imageUrl && <span>{label}</span>}</div>,
+    shorts: <div className="garment shorts" style={{ background: fill, borderColor: stroke }}>{imageOverlay}{showLabel && !product.imageUrl && <span>{label}</span>}</div>,
+    skort: <div className="garment skort" style={{ background: fill, borderColor: stroke }}>{imageOverlay}{showLabel && !product.imageUrl && <span>{label}</span>}</div>,
+    trousers: <div className="garment trousers" style={{ background: fill, borderColor: stroke }}>{imageOverlay}{showLabel && !product.imageUrl && <span>{label}</span>}</div>,
+    shoes: <><div className="garment shoe left" style={{ background: fill, borderColor: stroke }}>{product.imageUrl && imageOverlay}</div><div className="garment shoe right" style={{ background: fill, borderColor: stroke }} /></>,
+    cap: <div className="garment cap" style={{ background: fill, borderColor: stroke }}>{imageOverlay}</div>,
     belt: <div className="garment belt" style={{ background: fill, borderColor: stroke }} />,
   };
-  return shapes[hint] || <div className="garment polo" style={{ background: fill, borderColor: stroke }}>{showLabel && <span>{label}</span>}</div>;
+  return shapes[hint] || <div className="garment polo" style={{ background: fill, borderColor: stroke }}>{imageOverlay}{showLabel && !product.imageUrl && <span>{label}</span>}</div>;
 }
 
 export function Mannequin({ bodyType, selectedProducts, compact = false }) {

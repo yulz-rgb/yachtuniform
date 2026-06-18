@@ -3,7 +3,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { money } from '../lib/calc';
 
-export function ProductCard({ product, isSelected, onToggle, onEdit }) {
+export function ProductCard({ product, isSelected, onToggle, onEdit, readOnly = false }) {
   const imgBg = isSelected
     ? `radial-gradient(ellipse at 65% 25%, ${product.swatch}55 0%, #e8f2fa 55%, #f4f8fc 100%)`
     : `radial-gradient(ellipse at 65% 25%, ${product.swatch}28 0%, #eef4f9 55%, #f7f9fc 100%)`;
@@ -37,12 +37,18 @@ export function ProductCard({ product, isSelected, onToggle, onEdit }) {
           <div className="product-spec"><strong>Lead</strong>{product.leadTime || 'TBC'}</div>
           <div className="product-spec"><strong>SKU</strong>{product.sku || '—'}</div>
         </div>
-        <div className="card-actions">
-          <button className={`card-btn ${isSelected ? 'danger' : 'primary'}`} onClick={() => onToggle(product)}>
-            {isSelected ? <><Trash2 size={12} /> Remove</> : <><Plus size={12} /> Add</>}
-          </button>
-          <button className="card-btn" onClick={() => onEdit(product)}>Edit</button>
-        </div>
+        {readOnly ? (
+          <div className="card-actions">
+            <span className={`card-status ${isSelected ? 'in' : ''}`}>{isSelected ? '✓ In this look' : 'Not in look'}</span>
+          </div>
+        ) : (
+          <div className="card-actions">
+            <button className={`card-btn ${isSelected ? 'danger' : 'primary'}`} onClick={() => onToggle(product)}>
+              {isSelected ? <><Trash2 size={12} /> Remove</> : <><Plus size={12} /> Add</>}
+            </button>
+            <button className="card-btn" onClick={() => onEdit(product)}>Edit</button>
+          </div>
+        )}
       </div>
     </article>
   );

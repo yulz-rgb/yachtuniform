@@ -3,6 +3,7 @@ import { applyCatalogImport } from '../../../lib/repository';
 import { parseCatalogCsv } from '../../../lib/csv';
 import { validateCatalogRecord } from '../../../lib/validation';
 import { backendEnabled } from '../../../lib/config';
+import { can } from '../../../lib/permissions';
 
 // Validate a catalog CSV without persisting. Used for the import preview step.
 export async function PUT(req) {
@@ -31,7 +32,7 @@ export async function POST(req) {
   }
   const ctx = await getActiveContext();
   if (!ctx) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!['OWNER', 'CAPTAIN', 'CHIEF_STEW'].includes(ctx.role)) {
+  if (!can(ctx.role, 'catalog.import')) {
     return Response.json({ error: 'Insufficient permissions to import' }, { status: 403 });
   }
 
