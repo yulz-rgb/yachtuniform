@@ -2,12 +2,34 @@
 
 import { Plus, Trash2 } from 'lucide-react';
 import { money } from '../lib/calc';
+import {
+  defaultProductColour,
+  productImageForColour,
+  productSwatchForColour,
+} from '../lib/productColour';
 import { ProductAttribution } from './ProductAttribution';
 
-export function ProductCard({ product, isSelected, onToggle, onEdit, readOnly = false }) {
+export function ProductCard({
+  product,
+  isSelected,
+  onToggle,
+  onEdit,
+  readOnly = false,
+  selectedColour,
+  onColourSelect,
+}) {
+  const activeColour = selectedColour || defaultProductColour(product);
+  const displayImage = productImageForColour(product, activeColour);
+  const displaySwatch = productSwatchForColour(product, activeColour);
   const imgBg = isSelected
-    ? `radial-gradient(ellipse at 65% 25%, ${product.swatch}55 0%, #e8f2fa 55%, #f4f8fc 100%)`
-    : `radial-gradient(ellipse at 65% 25%, ${product.swatch}28 0%, #eef4f9 55%, #f7f9fc 100%)`;
+    ? `radial-gradient(ellipse at 65% 25%, ${displaySwatch}55 0%, #ffffff 55%, #f8fafc 100%)`
+    : `radial-gradient(ellipse at 65% 25%, ${displaySwatch}28 0%, #ffffff 55%, #f8fafc 100%)`;
+
+  function handleColourClick(e, colour) {
+    e.stopPropagation();
+    onColourSelect?.(product, colour);
+  }
+
   return (
     <article className={`product-card ${isSelected ? 'selected' : ''} ${product.active === false ? 'inactive' : ''}`}>
       <div className="product-card-image" style={{ background: imgBg }}>
@@ -15,11 +37,11 @@ export function ProductCard({ product, isSelected, onToggle, onEdit, readOnly = 
         {isSelected && <span className="in-look-badge">✓ In Look</span>}
         {product.active === false && <span className="inactive-badge">Inactive</span>}
         <div className="product-photo">
-          {product.imageUrl ? (
+          {displayImage ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img className="product-photo-img" src={product.imageUrl} alt={product.name} />
+            <img className="product-photo-img" src={displayImage} alt={`${product.name} — ${activeColour}`} />
           ) : (
-            <div className="product-photo-shirt" style={{ background: product.swatch, borderColor: product.accent }} />
+            <div className="product-photo-shirt" style={{ background: displaySwatch, borderColor: product.accent }} />
           )}
         </div>
       </div>
@@ -28,23 +50,19 @@ export function ProductCard({ product, isSelected, onToggle, onEdit, readOnly = 
         <h3>{product.name}</h3>
         <div className="product-price">{money(product.price, product.currency)}</div>
         <div className="color-swatches">
-          {(product.colours || []).slice(0, 4).map((c, i) => (
-            <span key={c} className="color-swatch" title={c} style={{ background: i === 0 ? product.swatch : '#e2e8f0' }} />
+          {(product.colours || []).slice(0, 8).map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={`color-swatch ${c === activeColour ? 'selected' : ''}`}
+              aria-label={`${product.name} in ${c}`}
+              aria-pressed={c === activeColour}
+              style={{ background: productSwatchForColour(product, c) }}
+              onClick={(e) => handleColourClick(e, c)}
+            >
+              <span className="color-swatch-label">{c}</span>
+            </button>
           ))}
-        </div>
-        <div className="product-specs">
-          <div className="product-spec"><strong>Brand</strong>{product.brand || '—'}</div>
-          <div className="product-spec"><strong>Supplier</strong>
-            {product.productUrl ? (
-              <a className="product-spec-link" href={product.productUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                {product.supplierName || 'View'}
-              </a>
-            ) : (product.supplierName || '—')}
-          </div>
-          <div className="product-spec"><strong>Fabric</strong>{product.fabric?.split(',')[0] || '—'}</div>
-          <div className="product-spec"><strong>Sizes</strong>{product.sizeRange || 'TBC'}</div>
-          <div className="product-spec"><strong>Lead</strong>{product.leadTime || 'TBC'}</div>
-          <div className="product-spec"><strong>SKU</strong>{product.sku || '—'}</div>
         </div>
         {readOnly ? (
           <div className="card-actions">

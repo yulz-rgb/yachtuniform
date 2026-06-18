@@ -25,6 +25,7 @@ import { CrewImport } from './CrewImport';
 import { TeamPanel } from './TeamPanel';
 import { ProductAttribution } from './ProductAttribution';
 import { enrichProductsWithDefaults, productsMissingAttribution, resolveCatalogProducts } from '../lib/catalogAttribution';
+import { defaultProductColour, parseColourImages, withProductColour } from '../lib/productColour';
 import {
   money, buildLookTotals, computeBudget, buildOrderSummary, buildSizeAwareOrderSummary,
   indexById, compareLooks,
@@ -50,7 +51,7 @@ const NAV_ICONS = {
 };
 const LOCAL_KEY = 'yachtUniform.workspace.v5';
 const CATALOG_VERSION_KEY = 'yachtUniform.catalogVersion';
-const CATALOG_VERSION = 'marina-v3-attribution';
+const CATALOG_VERSION = 'marina-v5-colour-images';
 const ORDER_HISTORY_KEY = 'yachtUniform.orders.v1';
 
 const DEFAULT_SETTINGS = {
@@ -162,6 +163,7 @@ function normalizeImportedProduct(product) {
     currency: product.currency === 'EUR' ? '€' : product.currency,
     fit: product.fit?.length ? product.fit : ['woman', 'man'],
     colours: product.colours || [],
+    colourImages: parseColourImages(product.colourImages),
   };
 }
 
@@ -209,6 +211,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   const [showCrewImport, setShowCrewImport] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
   const [showTeam, setShowTeam] = useState(false);
+  const [colourChoices, setColourChoices] = useState({});
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [saveState, setSaveState] = useState('idle');
@@ -301,9 +304,21 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   const activeLook = looks.find((l) => l.id === activeLookId) || looks[0];
   const activeNav = navCategories.find((n) => n.id === activeNavCat) || navCategories[0];
   const productsById = useMemo(() => indexById(products), [products]);
+
+  function selectProductColour(product, colour) {
+    setColourChoices((prev) => ({ ...prev, [product.id]: colour }));
+  }
+
+  function colourForProduct(product) {
+    return colourChoices[product?.id] || defaultProductColour(product);
+  }
+
   const selectedProducts = useMemo(
-    () => (activeLook?.productIds || []).map((id) => productsById[id]).filter(Boolean),
-    [productsById, activeLook],
+    () => (activeLook?.productIds || [])
+      .map((id) => productsById[id])
+      .filter((p) => p && productMatchesBodyType(p, activeLook?.bodyType || 'woman'))
+      .map((p) => withProductColour(p, colourForProduct(p))),
+    [productsById, activeLook, colourChoices],
   );
 
   const filteredProducts = useMemo(() => {
@@ -339,6 +354,13 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   }, [products, activeNav, activeLook, subFilter, search, sortBy, advancedFilters, roleFilter]);
 
   const lookTotals = useMemo(() => buildLookTotals(looks, products), [looks, products]);
+  const lookTotalsDisplay = useMemo(
+    () => lookTotals.map((look) => ({
+      ...look,
+      products: look.products.map((p) => withProductColour(p, colourForProduct(p))),
+    })),
+    [lookTotals, colourChoices],
+  );
   const budget = useMemo(() => computeBudget(crew, lookTotals, settings), [crew, lookTotals, settings]);
   const orderSummary = useMemo(() => buildOrderSummary(crew, looks, products, settings), [crew, looks, products, settings]);
   const sizeAwareOrder = useMemo(() => buildSizeAwareOrderSummary(crew, looks, products, settings), [crew, looks, products, settings]);
@@ -925,13 +947,16 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
                   <div className="catalog-grid">
                     {filteredProducts.map((p) => (
                       <ProductCard key={p.id} product={p} isSelected={activeLook.productIds.includes(p.id)}
+                        selectedColour={colourForProduct(p)}
+                        onColourSelect={selectProductColour}
                         onToggle={toggleProduct} onEdit={openEditProduct} />
                     ))}
                   </div>
                 ) : (
                   <div className="product-list">
                     {filteredProducts.map((p) => (
-                      <ProductListRow key={p.id} product={p} isSelected={activeLook.productIds.includes(p.id)}
+                      <ProductListRow key={p.id} product={withProductColour(p, colourForProduct(p))}
+                        isSelected={activeLook.productIds.includes(p.id)}
                         roleMatch={productMatchesRole(p, roleFilter)}
                         onToggle={toggleProduct} onEdit={openEditProduct} />
                     ))}
@@ -1003,7 +1028,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
             <div className="bottom-panel">
               <h4>Looks Overview</h4>
               <div className="looks-overview-scroll">
-                {lookTotals.map((look) => (
+                {lookTotalsDisplay.map((look) => (
                   <div key={look.id} className={`look-thumb ${look.id === activeLook.id ? 'active' : ''}`}
                     onClick={() => setActiveLookId(look.id)}
                     onKeyDown={(e) => e.key === 'Enter' && setActiveLookId(look.id)}
@@ -1061,7 +1086,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
         </div>
         <h3>Look options</h3>
         <div className="print-grid">
-          {lookTotals.map((look) => (
+          {lookTotalsDisplay.map((look) => (
             <article className="print-card" key={look.id}>
               <div className="avatar-card print"><Mannequin bodyType={look.bodyType} selectedProducts={look.products} /></div>
               <h4>{look.name}</h4><p>{look.description}</p>

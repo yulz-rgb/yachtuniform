@@ -3,6 +3,7 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { parseColourImages } from '../lib/productColour.js';
 import {
   extractShopifyCatalog,
   fetchAllShopifyProducts,
@@ -11,9 +12,9 @@ import {
 const SOURCE_URL = 'https://www.marinayachtwear.com/';
 const SUPPLIER_NAME = 'Marina Yacht Wear';
 const CATALOG_COLUMNS = [
-  'category', 'name', 'brand', 'sku', 'price', 'currency', 'vatRate', 'colours',
+  'category', 'name', 'brand', 'price', 'currency', 'vatRate', 'colours',
   'swatch', 'accent', 'fabric', 'details', 'fit', 'roleTags', 'leadTime', 'minOrder',
-  'sizeRange', 'imageHint', 'imageUrl', 'supplierName', 'productUrl', 'active',
+  'sizeRange', 'imageHint', 'imageUrl', 'colourImages', 'supplierName', 'productUrl', 'active',
 ];
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -37,7 +38,6 @@ function recordToProduct(raw, handle) {
     category: raw.category,
     name: raw.name,
     brand: raw.brand,
-    sku: raw.sku,
     price: Number(raw.price) || 0,
     currency: raw.currency === 'EUR' ? '€' : raw.currency,
     colours: splitList(raw.colours),
@@ -52,6 +52,7 @@ function recordToProduct(raw, handle) {
     sizeRange: raw.sizeRange || '',
     imageHint: raw.imageHint || 'polo',
     imageUrl: raw.imageUrl || '',
+    colourImages: parseColourImages(raw.colourImages),
     supplierName: raw.supplierName || SUPPLIER_NAME,
     productUrl: raw.productUrl || productUrl,
     active: raw.active !== 'false',
@@ -69,9 +70,6 @@ async function fetchJson(url) {
 async function main() {
   const { records, method, brand } = await extractShopifyCatalog(SOURCE_URL, fetchJson);
   const shopifyProducts = await fetchAllShopifyProducts('https://www.marinayachtwear.com', fetchJson);
-  const handleBySku = new Map(
-    shopifyProducts.flatMap((p) => (p.variants || []).map((v) => [v.sku, p.handle])),
-  );
   const handleByTitle = new Map(shopifyProducts.map((p) => [p.title, p.handle]));
 
   const csvRows = [
@@ -82,8 +80,7 @@ async function main() {
   writeFileSync(csvPath, toCsv(csvRows));
 
   const catalogProducts = records.map((raw) => {
-    const handle = handleBySku.get(raw.sku)
-      || handleByTitle.get(raw.name)
+    const handle = handleByTitle.get(raw.name)
       || raw.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
     return recordToProduct(raw, handle);
   });

@@ -383,7 +383,7 @@ button { cursor: pointer; }
 /* ── Product card ── */
 .product-card {
   border: 1.5px solid var(--line); border-radius: var(--radius);
-  overflow: hidden; background: #fff;
+  overflow: visible; background: #fff;
   transition: transform var(--tr), box-shadow var(--tr), border-color var(--tr);
 }
 .product-card:hover {
@@ -399,6 +399,7 @@ button { cursor: pointer; }
   height: 152px;
   display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden;
+  border-radius: calc(var(--radius) - 1.5px) calc(var(--radius) - 1.5px) 0 0;
 }
 .product-card-image .brand-tag {
   position: absolute; top: 8px; left: 8px;
@@ -449,8 +450,28 @@ button { cursor: pointer; }
 .product-spec { font-size: 11px; color: var(--ink-2); line-height: 1.35; }
 .product-spec strong { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-light); font-weight: 800; }
 .color-swatches { display: flex; gap: 6px; margin: 7px 0; }
-.color-swatch { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1.5px var(--line); cursor: pointer; transition: transform var(--tr); }
-.color-swatch:hover { transform: scale(1.25); }
+.color-swatch {
+  position: relative; width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 0 0 1.5px var(--line);
+  cursor: pointer; transition: transform var(--tr); padding: 0;
+}
+.color-swatch:hover { transform: scale(1.25); z-index: 2; }
+.color-swatch.selected { box-shadow: 0 0 0 2px var(--navy), 0 0 0 3.5px #fff; transform: scale(1.15); }
+.color-swatch-label {
+  position: absolute; left: 50%; bottom: calc(100% + 7px);
+  transform: translateX(-50%) translateY(4px);
+  padding: 3px 7px; border-radius: 5px;
+  background: var(--navy); color: #fff;
+  font-size: 10px; font-weight: 800; letter-spacing: .02em;
+  white-space: nowrap; pointer-events: none;
+  opacity: 0; visibility: hidden;
+  transition: opacity var(--tr), transform var(--tr), visibility var(--tr);
+  box-shadow: var(--shadow-sm);
+}
+.color-swatch:hover .color-swatch-label,
+.color-swatch:focus-visible .color-swatch-label {
+  opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
+}
 .card-actions { display: flex; gap: 6px; margin-top: 10px; }
 .card-btn {
   flex: 1; border-radius: var(--radius-sm); padding: 8px 6px;
