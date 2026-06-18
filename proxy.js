@@ -1,5 +1,6 @@
-// Clerk auth middleware. When Clerk is not configured the middleware is a
-// pass-through so the app still runs in local mode.
+// Clerk auth via the Next.js 16 proxy convention (formerly middleware).
+// When Clerk is not configured this is a pass-through so the app still runs
+// in local mode.
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { hasClerk } from './lib/config';
@@ -12,7 +13,7 @@ const clerkHandler = clerkMiddleware(async (auth, req) => {
   }
 });
 
-export default function middleware(req, evt) {
+export default function proxy(req, evt) {
   if (!hasClerk) return NextResponse.next();
   return clerkHandler(req, evt);
 }

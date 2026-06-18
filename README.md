@@ -1,65 +1,87 @@
-# Yacht Crew Uniform Lookbook Template
+# Yacht Crew Uniform Lookbook
 
-Deployable Next.js/Vercel template for building an interactive yacht crew uniform lookbook.
+A production-ready Next.js platform for yacht management teams to compose crew uniform looks, manage per-yacht catalogs, plan crew orders and budgets, and export procurement-ready PDF/CSV artifacts.
 
-## What is included
+## Two runtime modes
 
-- SIM-style mannequin preview with layered garment shapes.
-- Person selector: woman / man.
-- Multiple looks, for example arrival, day deck, evening service.
-- Editable supplier/product catalogue directly in the browser.
-- Product cards with brand, SKU, price, fabric, colour, size range, lead time and details.
-- Crew size / order matrix.
-- Live pricing calculator with:
-  - sets per crew member
-  - logo / embroidery cost per item
-  - spare stock percentage
-  - grand total
-- PDF export for owner / captain / chief stew presentation.
-- CSV export for supplier ordering.
-- JSON import/export backup for catalogue, looks and crew matrix.
+The app detects its environment and adapts automatically:
 
-## Deploy on Vercel
+| Mode | When | Data | Auth |
+|------|------|------|------|
+| Local | No backend env vars | Browser `localStorage` + demo catalog | None |
+| Production | `DATABASE_URL` + Clerk keys set | Neon/Postgres, per-yacht isolated | Clerk |
 
-1. Upload the folder to GitHub.
-2. In Vercel, choose **Add New Project**.
-3. Import the repository.
-4. Vercel should detect Next.js automatically.
-5. Click **Deploy**.
+This means it always runs for design/dev, and becomes a full multi-tenant SaaS once configured.
+
+## Stack
+
+- Next.js 16 (App Router) + React 19
+- Prisma ORM + Neon/Postgres
+- Clerk authentication + multi-tenant memberships
+- Vercel Blob (product images + export artifacts)
+- Vercel Analytics
+- Vitest unit tests, ESLint flat config, GitHub Actions CI
 
 ## Local development
 
 ```bash
 npm install
-npm run dev
+npm run dev        # http://localhost:3000  (local mode, demo data)
+npm test           # unit tests for calculations and CSV
+npm run lint
+npm run build
 ```
 
-Open `http://localhost:3000`.
+## Going to production
 
-## How to make it commercial-grade
+1. Provision managed services (auto-injects env vars):
+   ```bash
+   vercel integration add neon
+   vercel integration add clerk
+   vercel integration add blob     # or create a Blob store in the dashboard
+   vercel env pull .env.local
+   ```
+   See `.env.example` for the full variable list.
+2. Apply the schema and seed bootstrap demo data:
+   ```bash
+   npx prisma migrate deploy
+   npm run db:seed          # optional: demo yacht for verification
+   ```
+3. Deploy (per handover workflow):
+   ```bash
+   git push origin main
+   npx vercel --prod --yes
+   ```
 
-The demo products are placeholders. Replace them with real supplier data:
+## Architecture
 
-- exact product photos or transparent PNG cut-outs
-- supplier names
-- SKUs
-- wholesale prices
-- VAT/shipping rules
-- size availability
-- colour availability
-- embroidery/logo setup fees
-- lead times
-- minimum order quantities
+- `app/page.jsx` — server component; loads the active yacht's workspace (production) or renders local mode.
+- `components/Workspace.jsx` — client app (preview, catalog, budget, crew, exports, approvals).
+- `components/` — `Mannequin`, `ProductCard`, `ProductEditor`, `CatalogImport`.
+- `lib/calc.js` — pure budget / order / validation logic (unit tested).
+- `lib/csv.js` — CSV parse/build for orders and catalog import (unit tested).
+- `lib/validation.js` — Zod schemas for products, looks, crew, settings, imports.
+- `lib/repository.js` — tenant-scoped Prisma data access.
+- `lib/auth.js` — Clerk user sync + active-yacht resolution + membership guards.
+- `app/actions.js` — server actions (save workspace, switch yacht, approvals).
+- `app/api/import` — catalog CSV validate/import. `app/api/upload` — Blob image upload.
+- `prisma/schema.prisma` — full data model. `prisma/migrations` — migration history.
 
-## Data storage
+## Catalog import
 
-The live editor stores changes in browser `localStorage`. This is good for a lightweight prototype.
-For multi-user professional use, connect it to a database such as Supabase, Neon, Firebase or Vercel Postgres.
+Import real supplier data via the in-app "Import Catalog CSV" button. Template: `docs/catalog-template.csv`. List columns (`colours`, `fit`, `roleTags`) accept `|` or `,` separators. Rows are validated (Zod) with a preview before persisting; SKUs are matched within the yacht for create-vs-update.
 
-## Best next improvements
+## Procurement features
 
-1. Use real transparent product PNG overlays instead of CSS garment shapes.
-2. Add user login so each yacht has private saved lookbooks.
-3. Add supplier API / spreadsheet sync for live stock and prices.
-4. Add approval workflow: chief stew draft → captain review → boss approval.
-5. Add multi-currency, VAT, shipping, logo setup and supplier minimum-order rules.
+- Budget includes garments, embroidery/logo, spare allowance, per-product VAT, flat shipping, and one-off setup.
+- Supplier purchase order aggregates quantities across crew and sets (with spare), flags below-MOQ lines.
+- Procurement checks surface missing sizes, fit/body mismatches, missing SKUs, and MOQ violations.
+- Approval workflow: Draft → Captain review → Owner approval → Approved, with a locked totals snapshot.
+
+## Testing
+
+```bash
+npm test
+```
+
+See `docs/SMOKE_TEST.md` for the manual production smoke test.

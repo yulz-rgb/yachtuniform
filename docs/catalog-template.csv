@@ -1,0 +1,6 @@
+category,name,brand,sku,price,currency,vatRate,colours,swatch,accent,fabric,details,fit,roleTags,leadTime,minOrder,sizeRange,imageHint,imageUrl,active
+tops,Technical Crew Polo,Gill Marine,GM-POL-WHT,52,EUR,21,White|Navy|Stone,#f8fafc,#0b1f3a,Recycled polyester pique,Embroidery-ready left chest,woman|man,deck|interior,10-14 days,6,XS-XXL,polo,,true
+bottoms,Stretch Deck Shorts,Marinepool,MP-SHT-NVY,64,EUR,21,Navy|Stone,#13294b,#ffffff,Cotton/nylon stretch twill,Practical pockets hard-wearing,woman|man,deck|engineer,7-14 days,6,28-40,shorts,,true
+dresses,Service Dress,Liquid Yacht Wear,LYW-DRS-NVY,118,EUR,21,Navy|White,#0f2747,#ffffff,Stretch crepe wrinkle resistant,Chief stew evening service,woman,chief-stew|interior,21 days,2,EU 34-44,dress,,true
+shoes,Non-Marking Deck Shoe,Sebago,DS-WHT-001,89,EUR,21,White,#f8fafc,#94a3b8,Non-marking rubber sole,Deck-safe sole,woman|man,deck|captain,7-10 days,1,EU 36-46,shoes,,true
+accessories,Logo Crew Cap,Atlantis Headwear,CAP-NVY-001,18,EUR,21,Navy|White|Stone,#0b1f3a,#ffffff,Cotton twill,Adjustable embroidery-ready,woman|man,deck|interior,10 days,12,One size,cap,,true

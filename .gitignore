@@ -20,6 +20,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # env files
+.env
 .env*.local
 
 # vercel
@@ -33,3 +34,4 @@ uniform-crawler/venv/
 uniform-crawler/__pycache__/
 uniform-crawler/*.pyc
 IMAGES/
+.env*
