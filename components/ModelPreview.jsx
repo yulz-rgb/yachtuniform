@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ZoomIn, ZoomOut, RotateCw, Sun } from 'lucide-react';
-import { Mannequin } from './Mannequin';
 import { getPreviewModelSrc, PREVIEW_BASE_SCALE } from '../lib/previewModels';
 
 const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 2;
 const ZOOM_STEP = 0.12;
 
-export function ModelPreview({ bodyType, selectedProducts, hideBg }) {
+export function ModelPreview({ bodyType, hideBg }) {
   const [zoom, setZoom] = useState(1);
   const [view, setView] = useState('front');
   const [brightness, setBrightness] = useState(1);
@@ -39,7 +38,6 @@ export function ModelPreview({ bodyType, selectedProducts, hideBg }) {
   }, [clampZoom]);
 
   const modelSrc = getPreviewModelSrc(bodyType, view, hideBg);
-  const hasGarments = !hideBg && selectedProducts.length > 0;
   const stageTransform = `scale(${PREVIEW_BASE_SCALE * zoom})`;
 
   return (
@@ -79,25 +77,13 @@ export function ModelPreview({ bodyType, selectedProducts, hideBg }) {
         style={{ filter: brightness !== 1 ? `brightness(${brightness})` : undefined }}
       >
         <div className={`preview-model-stage view-${view}`} style={{ transform: stageTransform }}>
-          <div className="preview-photo-stack">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              className="preview-photo-base"
-              src={modelSrc}
-              alt={`${bodyType === 'man' ? 'Male' : 'Female'} crew model`}
-              draggable={false}
-            />
-            {hasGarments && (
-              <div className="preview-garment-overlay" aria-hidden>
-                <Mannequin
-                  bodyType={bodyType}
-                  selectedProducts={selectedProducts}
-                  view={view}
-                  overlayOnly
-                />
-              </div>
-            )}
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="preview-photo-base"
+            src={modelSrc}
+            alt={`${bodyType === 'man' ? 'Male' : 'Female'} crew model`}
+            draggable={false}
+          />
         </div>
       </div>
     </div>

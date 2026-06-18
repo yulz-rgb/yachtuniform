@@ -835,7 +835,6 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
               <div className="preview-look-name">Current Look: {activeLook.name}</div>
               <ModelPreview
                 bodyType={activeLook.bodyType}
-                selectedProducts={selectedProducts}
                 hideBg={hideBg}
               />
               <div className="preview-stats">

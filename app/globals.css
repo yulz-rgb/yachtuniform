@@ -262,11 +262,6 @@ button { cursor: pointer; }
   align-items: center;
   justify-content: center;
 }
-.preview-photo-stack {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
 .preview-photo-base {
   width: 100%;
   height: 100%;
@@ -275,24 +270,9 @@ button { cursor: pointer; }
   display: block;
   user-select: none;
   -webkit-user-drag: none;
+  position: relative;
+  z-index: 1;
 }
-.preview-garment-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.preview-garment-overlay .mannequin.overlay-only {
-  width: 200px;
-  height: 340px;
-  margin: 0;
-  transform: scale(0.84);
-  transform-origin: center bottom;
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  translate: -50% 0;
-}
-.preview-model-stage.view-back .preview-photo-base { object-position: center top; }
 .preview-model {
   display: block;
   width: 100%;
