@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ZoomIn, ZoomOut, RotateCw, Sun } from 'lucide-react';
 import { Mannequin } from './Mannequin';
-import { getPreviewModelSrc, PREVIEW_BASE_SCALE } from '../lib/previewModels';
+import { PREVIEW_FILL_RATIO, PREVIEW_MANNEQUIN_HEIGHT } from '../lib/previewModels';
 
 const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 2;
@@ -13,12 +13,28 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
   const [zoom, setZoom] = useState(1);
   const [view, setView] = useState('front');
   const [brightness, setBrightness] = useState(1);
+  const [fitScale, setFitScale] = useState(1);
   const frameRef = useRef(null);
 
   const clampZoom = useCallback(
     (value) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value)),
     [],
   );
+
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return undefined;
+
+    const updateFit = () => {
+      const targetHeight = frame.clientHeight * PREVIEW_FILL_RATIO;
+      setFitScale(targetHeight / PREVIEW_MANNEQUIN_HEIGHT);
+    };
+
+    updateFit();
+    const observer = new ResizeObserver(updateFit);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     setView('front');
@@ -38,9 +54,7 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
     return () => frame.removeEventListener('wheel', onWheel);
   }, [clampZoom]);
 
-  const modelSrc = getPreviewModelSrc(bodyType, view);
-  const hasGarments = selectedProducts.length > 0;
-  const stageTransform = `scale(${PREVIEW_BASE_SCALE * zoom})`;
+  const figureScale = fitScale * zoom;
 
   return (
     <div
@@ -78,24 +92,15 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
         className="preview-viewport"
         style={{ filter: brightness !== 1 ? `brightness(${brightness})` : undefined }}
       >
-        <div className={`preview-model-stage view-${view}`} style={{ transform: stageTransform }}>
-          <div className={`preview-figure-stack ${hasGarments ? 'has-mannequin' : 'has-photo'}`}>
-            {hasGarments ? (
-              <Mannequin
-                bodyType={bodyType}
-                selectedProducts={selectedProducts}
-                view={view}
-              />
-            ) : (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                className="preview-photo-base"
-                src={modelSrc}
-                alt={`${bodyType === 'man' ? 'Male' : 'Female'} crew model`}
-                draggable={false}
-              />
-            )}
-          </div>
+        <div
+          className={`preview-figure-stack view-${view}`}
+          style={{ transform: `scale(${figureScale})` }}
+        >
+          <Mannequin
+            bodyType={bodyType}
+            selectedProducts={selectedProducts}
+            view={view}
+          />
         </div>
       </div>
     </div>
