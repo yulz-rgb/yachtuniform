@@ -1,69 +1,69 @@
 #!/usr/bin/env python3
-"""Composite underwear model cutouts onto a clean yacht-deck background."""
+"""Composite underwear model cutouts onto a plain white studio background."""
 
 from __future__ import annotations
 
-import math
+import sys
+from functools import lru_cache
+from io import BytesIO
 from pathlib import Path
 
-from PIL import Image, ImageFilter
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / '.venv-rembg'))
+
+from rembg import new_session, remove  # noqa: E402
+
 PREVIEW = ROOT / 'public' / 'preview'
-REF = Path('/Users/lana/.cursor/projects/Users-lana-Downloads-yacht-uniform-lookbook-template-v2/assets/3176760c-f230-45b2-82d7-2b79ee125c88-f1e32456-183a-4898-969d-eddf39893f36.png')
 OUT_W, OUT_H = 960, 960
-MODEL_HEIGHT_RATIO = 0.9
+MODEL_HEIGHT_RATIO = 0.76
+TOP_MARGIN_RATIO = 0.06
+WHITE = (255, 255, 255)
 
 
-def sample_bg_color(img: Image.Image) -> tuple[int, int, int]:
-    w, h = img.size
-    points = [(4, 4), (w - 5, 4), (4, h - 5), (w - 5, h - 5), (w // 2, 4), (w // 2, h - 5)]
-    rs = gs = bs = 0
-    for x, y in points:
-        r, g, b = img.convert('RGB').getpixel((x, y))
-        rs += r
-        gs += g
-        bs += b
-    return rs // len(points), gs // len(points), bs // len(points)
+@lru_cache(maxsize=1)
+def rembg_session():
+    return new_session('u2net_human_seg')
 
 
-def cutout_model(src: Path, bg: tuple[int, int, int]) -> Image.Image:
-    img = Image.open(src).convert('RGBA')
-    px = img.load()
-    w, h = img.size
-    br, bgc, bb = bg
+def content_bbox(img: Image.Image) -> tuple[int, int, int, int]:
+    rgba = img.convert('RGBA')
+    px = rgba.load()
+    w, h = rgba.size
+    min_x, min_y, max_x, max_y = w, h, 0, 0
     for y in range(h):
         for x in range(w):
-            r, g, b, a = px[x, y]
-            dist = math.sqrt((r - br) ** 2 + (g - bgc) ** 2 + (b - bb) ** 2)
-            if dist < 28:
-                px[x, y] = (r, g, b, 0)
-            elif dist < 52:
-                fade = int(255 * (dist - 28) / 24)
-                px[x, y] = (r, g, b, min(a, fade))
-    return img.filter(ImageFilter.SMOOTH_MORE)
+            if px[x, y][3] > 16:
+                min_x = min(min_x, x)
+                min_y = min(min_y, y)
+                max_x = max(max_x, x)
+                max_y = max(max_y, y)
+    if max_x <= min_x:
+        return 0, 0, w, h
+    return min_x, min_y, max_x + 1, max_y + 1
 
 
-def build_deck_background() -> Image.Image:
-    ref = Image.open(REF).convert('RGB')
-    sky = ref.crop((300, 115, 345, 295)).resize((OUT_W, int(OUT_H * 0.6)), Image.Resampling.LANCZOS)
-    deck = ref.crop((218, 492, 328, 528)).resize((OUT_W, int(OUT_H * 0.42)), Image.Resampling.LANCZOS)
-    canvas = Image.new('RGB', (OUT_W, OUT_H))
-    canvas.paste(sky, (0, 0))
-    canvas.paste(deck, (0, int(OUT_H * 0.58)))
-    return canvas
+def cutout_model(src: Path) -> Image.Image:
+    raw = src.read_bytes()
+    cut = remove(raw, session=rembg_session(), post_process_mask=True)
+    img = Image.open(BytesIO(cut)).convert('RGBA')
+    return img.crop(content_bbox(img))
 
 
-def composite(model_path: Path, out_path: Path, deck: Image.Image) -> None:
-    bg = sample_bg_color(Image.open(model_path))
-    model = cutout_model(model_path, bg)
+def build_white_background() -> Image.Image:
+    return Image.new('RGB', (OUT_W, OUT_H), WHITE)
+
+
+def composite(model_path: Path, out_path: Path, canvas_base: Image.Image) -> None:
+    model = cutout_model(model_path)
     target_h = int(OUT_H * MODEL_HEIGHT_RATIO)
     scale = target_h / model.height
     target_w = int(model.width * scale)
     model = model.resize((target_w, target_h), Image.Resampling.LANCZOS)
-    canvas = deck.copy().convert('RGBA')
+    canvas = canvas_base.copy().convert('RGBA')
     x = (OUT_W - target_w) // 2
-    y = OUT_H - target_h - int(OUT_H * 0.03)
+    y = int(OUT_H * TOP_MARGIN_RATIO)
     canvas.alpha_composite(model, (x, y))
     canvas.convert('RGB').save(out_path, quality=92, optimize=True)
     print(f'wrote {out_path.name}')
@@ -71,8 +71,8 @@ def composite(model_path: Path, out_path: Path, deck: Image.Image) -> None:
 
 def main() -> None:
     PREVIEW.mkdir(parents=True, exist_ok=True)
-    deck = build_deck_background()
-    deck.save(PREVIEW / 'yacht-deck-clean.jpg', quality=92, optimize=True)
+    white = build_white_background()
+    white.save(PREVIEW / 'yacht-deck-clean.jpg', quality=92, optimize=True)
 
     pairs = [
         ('model-woman-front.jpg', 'composite-woman-front.jpg'),
@@ -84,7 +84,7 @@ def main() -> None:
         src = PREVIEW / src_name
         if not src.exists():
             raise SystemExit(f'missing model asset: {src}')
-        composite(src, PREVIEW / out_name, deck)
+        composite(src, PREVIEW / out_name, white)
 
 
 if __name__ == '__main__':

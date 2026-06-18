@@ -12,7 +12,7 @@
     "test:collapse": "node scripts/test-uniform-collapse.mjs",
     "catalog:marina": "node scripts/fetch-marina-catalog.mjs",
     "catalog:verify": "node scripts/verify-marina-catalog.mjs",
-    "preview:composites": "python3 scripts/build-preview-composites.py",
+    "preview:composites": "PYTHONPATH=.venv-rembg python3 scripts/build-preview-composites.py",
     "test:watch": "vitest",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",

@@ -209,7 +209,6 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   const [showCrewImport, setShowCrewImport] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
   const [showTeam, setShowTeam] = useState(false);
-  const [hideBg, setHideBg] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [saveState, setSaveState] = useState('idle');
@@ -835,7 +834,6 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
               <div className="preview-look-name">Current Look: {activeLook.name}</div>
               <ModelPreview
                 bodyType={activeLook.bodyType}
-                hideBg={hideBg}
               />
               <div className="preview-stats">
                 <div className="preview-stats-item">
@@ -849,7 +847,6 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
                 </div>
               </div>
               <div className="preview-actions">
-                <button type="button" className="preview-action-btn" onClick={() => setHideBg((b) => !b)}>{hideBg ? 'Show Background' : 'Hide Background'}</button>
                 <button type="button" className="preview-action-btn" onClick={() => patchActiveLook({ productIds: [] })}>Reset Look</button>
               </div>
             </section>

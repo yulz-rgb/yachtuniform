@@ -8,7 +8,7 @@ const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 2;
 const ZOOM_STEP = 0.12;
 
-export function ModelPreview({ bodyType, hideBg }) {
+export function ModelPreview({ bodyType }) {
   const [zoom, setZoom] = useState(1);
   const [view, setView] = useState('front');
   const [brightness, setBrightness] = useState(1);
@@ -37,13 +37,13 @@ export function ModelPreview({ bodyType, hideBg }) {
     return () => frame.removeEventListener('wheel', onWheel);
   }, [clampZoom]);
 
-  const modelSrc = getPreviewModelSrc(bodyType, view, hideBg);
+  const modelSrc = getPreviewModelSrc(bodyType, view);
   const stageTransform = `scale(${PREVIEW_BASE_SCALE * zoom})`;
 
   return (
     <div
       ref={frameRef}
-      className={`preview-frame ${hideBg ? 'no-bg studio-bg' : 'has-composite-bg'}`}
+      className="preview-frame has-composite-bg"
     >
       <div className="preview-toolbar" role="toolbar" aria-label="Model preview controls">
         <button type="button" className="preview-tool" onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))} title="Zoom out" aria-label="Zoom out">
@@ -77,6 +77,7 @@ export function ModelPreview({ bodyType, hideBg }) {
         style={{ filter: brightness !== 1 ? `brightness(${brightness})` : undefined }}
       >
         <div className={`preview-model-stage view-${view}`} style={{ transform: stageTransform }}>
+          <div className="preview-backdrop" aria-hidden />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             className="preview-photo-base"
