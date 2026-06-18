@@ -1,18 +1,81 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ZoomIn, ZoomOut, RotateCw, Sun } from 'lucide-react';
-import { Mannequin } from './Mannequin';
-import { PREVIEW_FILL_RATIO, PREVIEW_MANNEQUIN_HEIGHT } from '../lib/previewModels';
+import { ZoomIn, ZoomOut, RotateCw, Sun, ImageOff } from 'lucide-react';
+import {
+  PREVIEW_FILL_RATIO,
+  cutoutSrc,
+  figureDimensions,
+  garmentLayers,
+} from '../lib/previewAssets';
+import { keyProductImage } from '../lib/previewImage';
+import { productImageForColour, defaultProductColour } from '../lib/productColour';
 
-const MIN_ZOOM = 0.6;
-const MAX_ZOOM = 2;
-const ZOOM_STEP = 0.12;
+const MIN_ZOOM = 0.65;
+const MAX_ZOOM = 1.6;
+const ZOOM_STEP = 0.1;
+
+function GarmentLayer({ product, slot }) {
+  const colour = defaultProductColour(product);
+  const rawSrc = productImageForColour(product, colour);
+  const [src, setSrc] = useState(rawSrc);
+  const [keyed, setKeyed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setSrc(rawSrc);
+    setKeyed(false);
+    if (!rawSrc) return undefined;
+
+    keyProductImage(rawSrc).then((next) => {
+      if (!alive) return;
+      setSrc(next);
+      setKeyed(next !== rawSrc);
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [rawSrc]);
+
+  if (!rawSrc) return null;
+
+  const scale = slot.scale || 1;
+
+  return (
+    <div
+      className="preview-garment-layer"
+      style={{
+        top: `${slot.top}%`,
+        left: `${slot.left}%`,
+        width: `${slot.width}%`,
+        height: `${slot.height}%`,
+        zIndex: slot.z,
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        className={`preview-garment-img${keyed ? ' is-keyed' : ''}`}
+        draggable={false}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: slot.fit || 'cover',
+          objectPosition: slot.objectPosition || '50% 50%',
+          transform: scale !== 1 ? `scale(${scale})` : undefined,
+        }}
+      />
+    </div>
+  );
+}
 
 export function ModelPreview({ bodyType, selectedProducts = [] }) {
   const [zoom, setZoom] = useState(1);
   const [view, setView] = useState('front');
   const [brightness, setBrightness] = useState(1);
+  const [showBackground, setShowBackground] = useState(true);
   const [fitScale, setFitScale] = useState(1);
   const frameRef = useRef(null);
 
@@ -21,27 +84,24 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
     [],
   );
 
+  const figureSize = figureDimensions(bodyType, view);
+
   useLayoutEffect(() => {
     const frame = frameRef.current;
     if (!frame) return undefined;
 
     const updateFit = () => {
       const targetHeight = frame.clientHeight * PREVIEW_FILL_RATIO;
-      setFitScale(targetHeight / PREVIEW_MANNEQUIN_HEIGHT);
+      setFitScale(targetHeight / figureSize.height);
     };
 
     updateFit();
     const observer = new ResizeObserver(updateFit);
     observer.observe(frame);
     return () => observer.disconnect();
-  }, []);
+  }, [figureSize.height]);
 
-  useEffect(() => {
-    setView('front');
-    setZoom(1);
-  }, [bodyType]);
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     const frame = frameRef.current;
     if (!frame) return undefined;
 
@@ -55,11 +115,13 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
   }, [clampZoom]);
 
   const figureScale = fitScale * zoom;
+  const layers = garmentLayers(bodyType, view, selectedProducts);
+  const modelSrc = cutoutSrc(bodyType, view);
 
   return (
     <div
       ref={frameRef}
-      className="preview-frame has-yacht-bg"
+      className={`preview-frame ${showBackground ? 'has-yacht-bg' : 'no-bg'}`}
     >
       <div className="preview-toolbar" role="toolbar" aria-label="Model preview controls">
         <button type="button" className="preview-tool" onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))} title="Zoom out" aria-label="Zoom out">
@@ -80,11 +142,20 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
         <button
           type="button"
           className="preview-tool"
-          onClick={() => setBrightness((b) => (b >= 1.25 ? 1 : b + 0.08))}
+          onClick={() => setBrightness((b) => (b >= 1.2 ? 1 : b + 0.06))}
           title="Adjust brightness"
           aria-label="Adjust brightness"
         >
           <Sun size={14} aria-hidden />
+        </button>
+        <button
+          type="button"
+          className={`preview-tool ${!showBackground ? 'active' : ''}`}
+          onClick={() => setShowBackground((s) => !s)}
+          title={showBackground ? 'Hide background' : 'Show background'}
+          aria-label={showBackground ? 'Hide background' : 'Show background'}
+        >
+          <ImageOff size={14} aria-hidden />
         </button>
       </div>
 
@@ -94,13 +165,22 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
       >
         <div
           className={`preview-figure-stack view-${view}`}
-          style={{ transform: `scale(${figureScale})` }}
+          style={{
+            width: figureSize.width,
+            height: figureSize.height,
+            transform: `scale(${figureScale})`,
+          }}
         >
-          <Mannequin
-            bodyType={bodyType}
-            selectedProducts={selectedProducts}
-            view={view}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={modelSrc}
+            alt=""
+            className="preview-model-cutout"
+            draggable={false}
           />
+          {layers.map(({ product, slot }) => (
+            <GarmentLayer key={product.id} product={product} slot={slot} />
+          ))}
         </div>
       </div>
     </div>
