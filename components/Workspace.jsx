@@ -16,6 +16,7 @@ import {
 import { normalizeCrewMember, memberSets } from '../lib/crew';
 import { capabilitiesFor, canAdvance, STAGE_ACTOR } from '../lib/permissions';
 import { Mannequin } from './Mannequin';
+import { ModelPreview } from './ModelPreview';
 import { ProductCard } from './ProductCard';
 import { ProductListRow } from './ProductListRow';
 import { ProductEditor } from './ProductEditor';
@@ -757,14 +758,11 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
           <div className="workspace-grid">
             <section className="preview-panel no-print">
               <div className="preview-look-name">Current Look: {activeLook.name}</div>
-              <div className={`preview-frame ${hideBg ? 'no-bg' : ''}`}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  className="preview-model"
-                  src={activeLook.bodyType === 'man' ? '/preview/model-man.jpg' : '/preview/model-woman.jpg'}
-                  alt={`${activeLook.bodyType === 'man' ? 'Male' : 'Female'} crew uniform model`}
-                />
-              </div>
+              <ModelPreview
+                bodyType={activeLook.bodyType}
+                selectedProducts={selectedProducts}
+                hideBg={hideBg}
+              />
               <div className="preview-stats">
                 <div className="preview-stats-item">
                   <span className="psi-label">Items</span>
@@ -777,7 +775,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
                 </div>
               </div>
               <div className="preview-actions">
-                <button type="button" className="preview-action-btn" onClick={() => setHideBg((b) => !b)}>{hideBg ? 'Show Bg' : 'Hide Bg'}</button>
+                <button type="button" className="preview-action-btn" onClick={() => setHideBg((b) => !b)}>{hideBg ? 'Show Background' : 'Hide Background'}</button>
                 <button type="button" className="preview-action-btn" onClick={() => patchActiveLook({ productIds: [] })}>Reset Look</button>
               </div>
             </section>

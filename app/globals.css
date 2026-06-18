@@ -188,10 +188,10 @@ button { cursor: pointer; }
   background: var(--gold); border-radius: 2px; flex-shrink: 0;
 }
 .preview-frame {
-  flex: 0 0 420px;
-  height: 420px;
-  max-height: 420px;
-  min-height: 420px;
+  flex: 0 0 480px;
+  height: 480px;
+  max-height: 480px;
+  min-height: 480px;
   border-radius: var(--radius);
   overflow: hidden;
   position: relative;
@@ -199,8 +199,35 @@ button { cursor: pointer; }
   border: 1px solid rgba(200,220,238,.8);
   display: block;
   box-shadow: var(--shadow-sm);
+  touch-action: none;
 }
-.preview-frame.no-bg { background: #f8fafc; }
+.preview-frame.has-yacht-bg {
+  background-color: #9ec2dc;
+  background-image:
+    url('/preview/yacht-deck-sky.jpg'),
+    url('/preview/yacht-deck-floor.jpg');
+  background-size: cover, cover;
+  background-position: center 18%, center 88%;
+  background-repeat: no-repeat;
+}
+.preview-frame.no-bg { background: #f8fafc; background-image: none; }
+.preview-viewport {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  padding-bottom: 6%;
+}
+.preview-model-stage {
+  transform-origin: center bottom;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  image-rendering: -webkit-optimize-contrast;
+}
+.preview-model-stage.view-back .garment span { transform: scaleX(-1); }
 .preview-model {
   display: block;
   width: 100%;
@@ -209,21 +236,22 @@ button { cursor: pointer; }
   object-position: center top;
 }
 .preview-frame .mannequin:not(.compact) {
-  transform: scale(2.4);
+  transform: scale(1);
   transform-origin: center bottom;
   margin-bottom: 0;
 }
-.preview-toolbar { position: absolute; top: 10px; left: 10px; display: flex; gap: 4px; }
+.preview-toolbar { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 4px; z-index: 5; }
 .preview-tool {
   width: 32px; height: 32px; border-radius: var(--radius-sm);
-  background: rgba(255,255,255,.9); border: 1px solid rgba(255,255,255,.6);
+  background: rgba(255,255,255,.92); border: 1px solid rgba(255,255,255,.6);
   display: flex; align-items: center; justify-content: center;
   color: var(--muted); font-size: 13px;
   box-shadow: var(--shadow-xs);
   transition: all var(--tr);
   cursor: pointer;
 }
-.preview-tool:hover { background: #fff; color: var(--navy); transform: scale(1.1); }
+.preview-tool:hover { background: #fff; color: var(--navy); transform: scale(1.08); }
+.preview-tool.active { background: var(--navy); color: #fff; border-color: var(--navy); }
 .preview-stats {
   display: flex; justify-content: space-around; align-items: center;
   background: var(--surface); border: 1px solid var(--line);
@@ -491,6 +519,22 @@ button { cursor: pointer; }
 /* ── Mannequin ── */
 .mannequin { width: 200px; height: 340px; position: relative; transform-origin: center bottom; margin-bottom: 20px; }
 .mannequin.compact { transform: scale(.38); height: 130px; width: 76px; margin: 0; }
+.mannequin.view-back .head .hair { opacity: .35; transform: scaleX(-1); }
+.underwear-bra {
+  left: 54px; top: 82px; width: 92px; height: 56px;
+  background: linear-gradient(180deg, #fff 0%, #f4f6f8 100%);
+  border: 2px solid rgba(15,23,42,.1); border-radius: 16px 16px 12px 12px;
+  z-index: 12; padding: 0;
+  box-shadow: 0 4px 10px rgba(15,23,42,.06);
+}
+.underwear-shorts {
+  left: 58px; top: 172px; width: 84px; height: 52px;
+  background: linear-gradient(180deg, #fff 0%, #f4f6f8 100%);
+  border: 2px solid rgba(15,23,42,.1); border-radius: 10px 10px 16px 16px;
+  z-index: 12; padding: 0;
+  box-shadow: 0 4px 10px rgba(15,23,42,.06);
+}
+.man .underwear-bra { display: none; }
 .body { position: absolute; background: #f1c9a5; box-shadow: inset -7px -5px 0 rgba(0,0,0,.045); }
 .head { left:74px; top:4px; width:52px; height:52px; border-radius:50%; z-index:1; }
 .hair { position:absolute; left:4px; top:-5px; width:44px; height:18px; background:#5b3b2e; border-radius:50px 50px 12px 12px; opacity:.55; }

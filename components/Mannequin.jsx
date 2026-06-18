@@ -28,16 +28,29 @@ export function GarmentShape({ product, showLabel = false }) {
   return shapes[hint] || <div className="garment polo" style={{ background: fill, borderColor: stroke }}>{imageOverlay}{showLabel && !product.imageUrl && <span>{label}</span>}</div>;
 }
 
-export function Mannequin({ bodyType, selectedProducts, compact = false }) {
+export function Mannequin({ bodyType, selectedProducts, compact = false, view = 'front' }) {
   const byCategory = Object.fromEntries(selectedProducts.map((p) => [p.category, p]));
   const accessories = selectedProducts.filter((p) => p.category === 'accessories');
+  const hasTop = Boolean(
+    byCategory.dresses
+    || byCategory.engineering
+    || byCategory.tops
+    || byCategory.shirts
+    || byCategory.epaulettes
+    || byCategory['chef-wear']
+    || byCategory['spa-wear']
+    || byCategory.outerwear,
+  );
+  const hasBottom = Boolean(byCategory.bottoms || (byCategory.dresses && bodyType === 'woman'));
   return (
-    <div className={`mannequin ${bodyType} ${compact ? 'compact' : ''}`}>
+    <div className={`mannequin ${bodyType} ${compact ? 'compact' : ''} view-${view}`}>
       <div className="body head"><div className="hair" /></div>
       <div className="body neck" />
       <div className="body torso-base" />
       <div className="body arm left" /><div className="body arm right" />
       <div className="body leg left" /><div className="body leg right" />
+      {!compact && bodyType === 'woman' && !hasTop && <div className="garment underwear-bra" aria-hidden />}
+      {!compact && !hasBottom && <div className="garment underwear-shorts" aria-hidden />}
       {byCategory.dresses && bodyType === 'woman' ? <GarmentShape product={byCategory.dresses} /> :
         byCategory.engineering ? <GarmentShape product={byCategory.engineering} /> : <>
         <GarmentShape product={byCategory.tops || byCategory.shirts || byCategory.epaulettes || byCategory['chef-wear'] || byCategory['spa-wear']} />
