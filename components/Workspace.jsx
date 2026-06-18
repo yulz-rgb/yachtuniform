@@ -11,7 +11,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import {
   categories, defaultCrew, defaultLooks, defaultProducts, bodyTypes, roles, productMatchesBodyType,
-  navCategories, NAV_SECTION_LABELS, vessels, isDemoCatalog, productMatchesNav, catalogNavForProduct, DEMO_SKUS,
+  navCategories, NAV_SECTION_LABELS, vessels, isDemoCatalog, productMatchesNav, catalogNavForProduct,
 } from '../lib/catalog';
 import { normalizeCrewMember } from '../lib/crew';
 import { capabilitiesFor, canAdvance, STAGE_ACTOR } from '../lib/permissions';
@@ -24,7 +24,7 @@ import { CatalogImport } from './CatalogImport';
 import { CrewImport } from './CrewImport';
 import { TeamPanel } from './TeamPanel';
 import { ProductAttribution } from './ProductAttribution';
-import { enrichProductsWithDefaults, productsMissingAttribution } from '../lib/catalogAttribution';
+import { enrichProductsWithDefaults, productsMissingAttribution, resolveCatalogProducts } from '../lib/catalogAttribution';
 import {
   money, buildLookTotals, computeBudget, buildOrderSummary, buildSizeAwareOrderSummary,
   indexById, compareLooks,
@@ -81,7 +81,6 @@ function createEmptyProduct(currency = 'EUR') {
     category: 'tops',
     name: '',
     brand: '',
-    sku: '',
     price: 0,
     currency,
     vatRate: 0,
@@ -153,10 +152,7 @@ function matchesSubFilter(product, subFilter) {
 }
 
 function isStaleLocalCatalog(storedProducts = []) {
-  if (!storedProducts.length) return true;
-  if (storedProducts.length < 50) return true;
-  const demoHits = storedProducts.filter((p) => p.sku && DEMO_SKUS.has(p.sku)).length;
-  return demoHits >= 3;
+  return !storedProducts.length || storedProducts.length < 50;
 }
 
 function normalizeImportedProduct(product) {
@@ -183,7 +179,10 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   );
   const canEdit = caps.canEdit;
   const seeded = useRef(false);
-  const [products, setProducts] = useState(initialData?.products?.length ? initialData.products : defaultProducts);
+  const [products, setProducts] = useState(() => resolveCatalogProducts(
+    initialData?.products?.length ? initialData.products : defaultProducts,
+    defaultProducts,
+  ));
   const [looks, setLooks] = useState(initialData?.looks?.length ? initialData.looks : defaultLooks);
   const [crew, setCrew] = useState(() => normalizeCrewList(
     initialData?.crew?.length ? initialData.crew : defaultCrew,
@@ -251,7 +250,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
         if (nextProducts?.length) {
           if (isStaleLocalCatalog(nextProducts)) {
             nextProducts = defaultProducts;
-          } else if (storedVersion !== CATALOG_VERSION || productsMissingAttribution(nextProducts)) {
+          } else {
             nextProducts = enrichProductsWithDefaults(nextProducts, defaultProducts);
           }
         }
@@ -315,7 +314,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
       productMatchesBodyType(p, activeLook?.bodyType || 'woman') &&
       matchesSubFilter(p, subFilter) &&
       productMatchesRole(p, advancedFilters.role || roleFilter) &&
-      (!search || `${p.name} ${p.brand} ${p.sku}`.toLowerCase().includes(search.toLowerCase())));
+      (!search || `${p.name} ${p.brand}`.toLowerCase().includes(search.toLowerCase())));
 
     if (advancedFilters.supplier) {
       const q = advancedFilters.supplier.toLowerCase();
@@ -423,10 +422,10 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
 
   function mergeImportedProducts(imported) {
     setProducts((prev) => {
-      const bySku = new Map(prev.filter((p) => p.sku).map((p) => [p.sku, p]));
+      const byName = new Map(prev.map((p) => [p.name.toLowerCase(), p]));
       const next = [...prev];
       for (const p of imported) {
-        const existing = p.sku ? bySku.get(p.sku) : null;
+        const existing = p.name ? byName.get(p.name.toLowerCase()) : null;
         if (existing) {
           const idx = next.findIndex((x) => x.id === existing.id);
           next[idx] = { ...existing, ...p, id: existing.id };
@@ -1090,10 +1089,10 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
         </table>
         <h3>Size-aware supplier purchase order</h3>
         <table className="summary-table">
-          <thead><tr><th>Supplier</th><th>SKU</th><th>Product</th><th>Size</th><th>Colour</th><th>Qty</th><th>Unit</th><th>Line total</th></tr></thead>
+          <thead><tr><th>Supplier</th><th>Product</th><th>Size</th><th>Colour</th><th>Qty</th><th>Unit</th><th>Line total</th></tr></thead>
           <tbody>{sizeAwareOrder.map((l) => (
             <tr key={`${l.productId}-${l.size}-${l.colour}`}>
-              <td>{l.supplier}</td><td>{l.sku}</td><td>{l.name}</td><td>{l.size}</td><td>{l.colour}</td>
+              <td>{l.supplier}</td><td>{l.name}</td><td>{l.size}</td><td>{l.colour}</td>
               <td>{l.orderQty}</td><td>{fmt(l.unitPrice)}</td><td>{fmt(l.lineTotal)}</td>
             </tr>
           ))}</tbody>
