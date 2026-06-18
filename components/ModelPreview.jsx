@@ -38,14 +38,14 @@ export function ModelPreview({ bodyType, selectedProducts, hideBg }) {
     return () => frame.removeEventListener('wheel', onWheel);
   }, [clampZoom]);
 
-  const modelSrc = getPreviewModelSrc(bodyType, view);
-  const hasGarments = selectedProducts.length > 0;
+  const modelSrc = getPreviewModelSrc(bodyType, view, hideBg);
+  const hasGarments = !hideBg && selectedProducts.length > 0;
   const stageTransform = `scale(${PREVIEW_BASE_SCALE * zoom})`;
 
   return (
     <div
       ref={frameRef}
-      className={`preview-frame ${hideBg ? 'no-bg' : 'has-yacht-bg'}`}
+      className={`preview-frame ${hideBg ? 'no-bg studio-bg' : 'has-composite-bg'}`}
     >
       <div className="preview-toolbar" role="toolbar" aria-label="Model preview controls">
         <button type="button" className="preview-tool" onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))} title="Zoom out" aria-label="Zoom out">
