@@ -570,7 +570,6 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
         <OperationalDashboard
           tasks={dashboardTasks}
           budget={budget}
-          crewCount={crew.length}
           warningCount={warnings.length}
           orderStatus={order?.status}
           onAction={handleDashboardAction}

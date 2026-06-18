@@ -5,7 +5,6 @@ import { AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, Users } from 'l
 export function OperationalDashboard({
   tasks,
   budget,
-  crewCount,
   warningCount,
   orderStatus,
   onAction,
@@ -16,7 +15,6 @@ export function OperationalDashboard({
       <div className="ops-dashboard-header">
         <div>
           <h2>Chief Stew Dashboard</h2>
-          <p>Next actions for your {crewCount}-person crew — missing data, procurement risks, and approvals.</p>
         </div>
         <div className="ops-stats">
           <div className="ops-stat">
@@ -43,7 +41,7 @@ export function OperationalDashboard({
 
       {tasks.length === 0 ? (
         <div className="import-result ok" style={{ marginTop: 16 }}>
-          <CheckCircle2 size={16} /> All clear — crew sizing, procurement checks, and budget look ready.
+          <CheckCircle2 size={16} /> All clear
         </div>
       ) : (
         <div className="ops-task-grid">
@@ -63,7 +61,6 @@ export function OperationalDashboard({
               <div className="ops-task-body">
                 <span className={`ops-priority ${task.priority}`}>{task.priority}</span>
                 <strong>{task.title}</strong>
-                <p>{task.detail}</p>
               </div>
               <ArrowRight size={16} className="ops-task-arrow" />
             </button>
