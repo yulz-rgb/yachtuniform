@@ -12,6 +12,7 @@ import jsPDF from 'jspdf';
 import {
   categories, defaultCrew, defaultLooks, defaultProducts, bodyTypes, roles, productMatchesBodyType,
   navCategories, NAV_SECTION_LABELS, vessels, isDemoCatalog, productMatchesNav, catalogNavForProduct,
+  productMatchesDressFilter,
 } from '../lib/catalog';
 import { normalizeCrewMember } from '../lib/crew';
 import { capabilitiesFor, canAdvance, STAGE_ACTOR } from '../lib/permissions';
@@ -125,6 +126,7 @@ function productMatchesRole(product, role) {
 
 function matchesSubFilter(product, subFilter) {
   if (!subFilter || subFilter === 'All') return true;
+  if (subFilter === 'Dresses') return productMatchesDressFilter(product);
   const hay = `${product.name} ${product.fabric} ${product.imageHint} ${product.details || ''}`.toLowerCase();
   const roleHay = (product.roleTags || []).join(' ').toLowerCase();
   const map = {
