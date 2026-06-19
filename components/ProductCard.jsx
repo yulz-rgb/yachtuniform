@@ -60,6 +60,21 @@ export function ProductCard({
         <ProductAttribution product={product} />
         <h3>{product.name}</h3>
         <div className="product-price">{money(product.price, product.currency)}</div>
+        {isSelected && allocation && onAllocationChange && (
+          <LookItemControls
+            item={allocation}
+            roleOptions={roleOptions}
+            customRoleIds={customRoleIds}
+            eligibleCount={eligibleCount}
+            baseQty={baseQty}
+            orderQty={orderQty}
+            compact
+            disabled={disabled}
+            onChange={onAllocationChange}
+            onAddRole={onAddRole}
+            onRemoveRole={onRemoveRole}
+          />
+        )}
         <ProductSpecs product={product} />
         <div className="color-swatches">
           {(product.colours || []).slice(0, 8).map((c) => (
@@ -76,21 +91,6 @@ export function ProductCard({
             </button>
           ))}
         </div>
-        {isSelected && allocation && onAllocationChange && (
-          <LookItemControls
-            item={allocation}
-            roleOptions={roleOptions}
-            customRoleIds={customRoleIds}
-            eligibleCount={eligibleCount}
-            baseQty={baseQty}
-            orderQty={orderQty}
-            compact
-            disabled={disabled}
-            onChange={onAllocationChange}
-            onAddRole={onAddRole}
-            onRemoveRole={onRemoveRole}
-          />
-        )}
         {readOnly ? (
           <div className="card-actions">
             <span className={`card-status ${isSelected ? 'in' : ''}`}>{isSelected ? '✓ In this look' : 'Not in look'}</span>

@@ -34,11 +34,13 @@ import { CatalogImport } from './CatalogImport';
 import { CrewImport } from './CrewImport';
 import { TeamPanel } from './TeamPanel';
 import { ProductAttribution } from './ProductAttribution';
+import { ProductSpecs } from './ProductSpecs';
 import { mergeCatalogWithDefaults, ensureFullBundledCatalog } from '../lib/catalogAttribution';
 import { productMatchesSearch, searchPlatform } from '../lib/catalogSearch';
 import { defaultProductColour, parseColourImages, withProductColour } from '../lib/productColour';
 import {
   countEligibleCrew,
+  defaultRoleIdsForProduct,
   itemBaseQty,
   itemOrderQty,
   mergeRoleOptions,
@@ -438,6 +440,23 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   }, [mode, canEdit, products, looks, crew, settings]);
 
   useEffect(() => {
+    if (!products.length) return;
+    setLooks((prev) => {
+      const byId = indexById(products);
+      let changed = false;
+      const next = prev.map((look) => {
+        const normalized = normalizeLookItems(look, byId);
+        if (
+          JSON.stringify(normalized.items) !== JSON.stringify(look.items)
+          || JSON.stringify(normalized.productIds) !== JSON.stringify(look.productIds)
+        ) changed = true;
+        return normalized;
+      });
+      return changed ? next : prev;
+    });
+  }, [products]);
+
+  useEffect(() => {
     if (mode === 'local') {
       try {
         window.localStorage.setItem(LOCAL_KEY, JSON.stringify({
@@ -576,8 +595,17 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     [activeLookNormalized],
   );
 
-  function productAllocationProps(productId) {
-    const allocation = allocationByProductId.get(productId);
+  function productAllocationProps(productId, product) {
+    const inLook = activeLookNormalized.productIds?.includes(productId);
+    let allocation = allocationByProductId.get(productId);
+    if (!allocation && inLook) {
+      allocation = {
+        productId,
+        unitsPerPerson: 1,
+        roleIds: defaultRoleIdsForProduct(product),
+        spareQty: 0,
+      };
+    }
     if (!allocation) return null;
     const baseQty = itemBaseQty(crew, activeLookNormalized, allocation, settings);
     const orderQty = itemOrderQty(crew, activeLookNormalized, allocation, settings);
@@ -588,6 +616,10 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
       orderQty,
       onAllocationChange: (patch) => patchLookItem(productId, patch),
     };
+  }
+
+  function isProductInLook(productId) {
+    return Boolean(activeLookNormalized.productIds?.includes(productId));
   }
 
   const searchActive = search.trim().length > 0;
@@ -1450,8 +1482,8 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
                 {catalogView === 'grid' ? (
                   <div className="catalog-grid">
                     {visibleProducts.map((p) => {
-                      const alloc = productAllocationProps(p.id);
-                      const inLook = activeLook.productIds.includes(p.id);
+                      const inLook = isProductInLook(p.id);
+                      const alloc = inLook ? productAllocationProps(p.id, p) : null;
                       return (
                         <ProductCard
                           key={p.id}
@@ -1474,8 +1506,8 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
                 ) : (
                   <div className="product-list">
                     {visibleProducts.map((p) => {
-                      const alloc = productAllocationProps(p.id);
-                      const inLook = activeLook.productIds.includes(p.id);
+                      const inLook = isProductInLook(p.id);
+                      const alloc = inLook ? productAllocationProps(p.id, p) : null;
                       return (
                         <ProductListRow
                           key={p.id}
@@ -1598,6 +1630,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
                       <div className="current-item-info">
                         <div className="name">{product.name.split(' ').slice(0, 2).join(' ')}</div>
                         <ProductAttribution product={product} compact />
+                        <ProductSpecs product={product} />
                         <div className="price">{orderQty} · {fmt(lineTotal)}</div>
                       </div>
                     </div>
