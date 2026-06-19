@@ -3,6 +3,7 @@
 import { marinaProducts } from '../lib/marinaCatalog.js';
 import { superyachtProducts } from '../lib/superyachtCatalog.js';
 import { smallwoodsProducts } from '../lib/smallwoodsCatalog.js';
+import { filterUniformCatalogRecords } from '../lib/catalogExtract.js';
 import {
   categories,
   navCategories,
@@ -22,7 +23,7 @@ function fail(msg) {
   console.error(`✗ ${msg}`);
 }
 
-const allProducts = [...marinaProducts, ...superyachtProducts, ...smallwoodsProducts];
+const allProducts = filterUniformCatalogRecords([...marinaProducts, ...superyachtProducts, ...smallwoodsProducts]);
 
 const issues = validateUniformCatalog(allProducts);
 if (issues.length) {

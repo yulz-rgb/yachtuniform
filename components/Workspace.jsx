@@ -56,7 +56,7 @@ const NAV_ICONS = {
 };
 const LOCAL_KEY = 'yachtUniform.workspace.v5';
 const CATALOG_VERSION_KEY = 'yachtUniform.catalogVersion';
-const CATALOG_VERSION = 'all-suppliers-v5';
+const CATALOG_VERSION = 'all-suppliers-v6';
 const ORDER_HISTORY_KEY = 'yachtUniform.orders.v1';
 const CATALOG_PAGE_SIZE = 96;
 
@@ -240,7 +240,11 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
           ? defaultProducts
           : ensureFullBundledCatalog(data.products || [], defaultProducts);
         if (storedVersion !== CATALOG_VERSION) {
-          nextProducts = ensureFullBundledCatalog(data.products || [], defaultProducts);
+          // Catalog version changed: replace the stored product list with the
+          // clean bundled catalog so older browsers drop removed/non-uniform
+          // items and pick up corrected categories. Crew/looks/settings below
+          // are preserved separately.
+          nextProducts = defaultProducts.map((p) => ({ ...p }));
         }
         /* eslint-disable react-hooks/set-state-in-effect */
         setProducts(nextProducts);
@@ -355,7 +359,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     if (sortBy === 'price-desc') return [...base].sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
     if (sortBy === 'lead') return [...base].sort((a, b) => (parseLeadDays(a.leadTime) || 999) - (parseLeadDays(b.leadTime) || 999));
     return base;
-  }, [products, activeNav, activeLook, subFilter, search, sortBy, advancedFilters, roleFilter]);
+  }, [products, activeNavCat, activeNav, activeLook, subFilter, search, sortBy, advancedFilters, roleFilter]);
 
   // Reset pagination back to the first page whenever the active filters change.
   // Done during render (not in an effect) so the limit is correct in the same pass.
