@@ -12,10 +12,16 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import {
   categories, defaultCrew, defaultLooks, defaultProducts, marinaDefaultProducts, bodyTypes, roles, productMatchesBodyType,
-  navCategories, NAV_SECTION_LABELS, vessels, isDemoCatalog, productMatchesNav, productMatchesSubFilter, catalogNavForProduct,
+  navCategories, NAV_GROUPS, vessels, isDemoCatalog, productMatchesNav, productMatchesSubFilter, catalogNavForProduct,
   importedSupplierCatalog,
 } from '../lib/catalog';
-import { ALL_SUPPLIERS_NAV_ID, ALL_BRANDS_NAV_ID } from '../lib/uniformTaxonomy';
+import {
+  ALL_SUPPLIERS_NAV_ID,
+  ALL_BRANDS_NAV_ID,
+  navItemVisibleForBodyType,
+  subFilterVisibleForBodyType,
+  navGroupForCategoryId,
+} from '../lib/uniformTaxonomy';
 import { normalizeCrewMember } from '../lib/crew';
 import { capabilitiesFor, canAdvance, STAGE_ACTOR } from '../lib/permissions';
 import { ModelPreview } from './ModelPreview';
@@ -58,6 +64,17 @@ const NAV_ICONS = {
   spa: '💆',
   epaulettes: '🎖️',
   footwear: '👟',
+  'cat-shirts': '👔',
+  'cat-dresses': '👗',
+  polos: '👕',
+  tees: '👕',
+  'cat-shorts': '🩳',
+  'cat-trousers': '👖',
+  'knitwear-garment': '🧶',
+  'skorts-garment': '👗',
+  'overalls-garment': '🦺',
+  'chef-garment': '👨‍🍳',
+  'spa-garment': '💆',
   outerwear: '🌧️',
   accessories: '🧢',
   'all-suppliers': '📦',
@@ -237,7 +254,8 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
 
   const [activeLookId, setActiveLookId] = useState((initialData?.looks?.[0] || defaultLooks[0]).id);
   const [activeNavCat, setActiveNavCat] = useState(ALL_SUPPLIERS_NAV_ID);
-  const [expandedNavCat, setExpandedNavCat] = useState(ALL_SUPPLIERS_NAV_ID);
+  const [expandedNavGroup, setExpandedNavGroup] = useState('by-supplier');
+  const [expandedNavCat, setExpandedNavCat] = useState(null);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState(
     () => new Set(importedSupplierCatalog.filter((s) => s.count > 0).map((s) => s.id)),
   );
@@ -283,18 +301,44 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   const platformSearchWrapRef = useRef(null);
 
   function toggleUniformNav() {
-    if (uniformNavOpen) setExpandedNavCat(null);
+    if (uniformNavOpen) {
+      setExpandedNavGroup(null);
+      setExpandedNavCat(null);
+    }
     setUniformNavOpen((open) => !open);
   }
 
-  function toggleNavCategory(catId) {
-    if (expandedNavCat === catId) {
+  function toggleNavGroup(groupId) {
+    if (expandedNavGroup === groupId) {
+      setExpandedNavGroup(null);
       setExpandedNavCat(null);
       return;
     }
-    setActiveNavCat(catId);
-    setExpandedNavCat(catId);
+    setExpandedNavGroup(groupId);
+    setExpandedNavCat(null);
     setSubFilter('All');
+    const bodyType = activeLook?.bodyType || 'woman';
+    if (groupId === 'by-supplier') setActiveNavCat(ALL_SUPPLIERS_NAV_ID);
+    else if (groupId === 'by-brand') setActiveNavCat(ALL_BRANDS_NAV_ID);
+    else if (groupId === 'by-department') {
+      const first = navCategories.find((n) => n.group === 'by-department');
+      if (first) setActiveNavCat(first.id);
+    } else if (groupId === 'by-category') {
+      const first = navCategories.find((n) => n.group === 'by-category' && navItemVisibleForBodyType(n, bodyType));
+      if (first) setActiveNavCat(first.id);
+    }
+  }
+
+  function toggleNavCategory(catId) {
+    setActiveNavCat(catId);
+    setSubFilter('All');
+    const nc = navCategories.find((n) => n.id === catId);
+    const hasSubcats = nc && nc.subFilters.filter((s) => s !== 'All').length > 0;
+    if (hasSubcats) {
+      setExpandedNavCat(expandedNavCat === catId ? null : catId);
+    } else {
+      setExpandedNavCat(null);
+    }
   }
 
   function toggleSupplierFilter(supplierId) {
@@ -424,7 +468,8 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     setPlatformQuery('');
     if (result.type === 'product') {
       setActiveNavCat(ALL_SUPPLIERS_NAV_ID);
-      setExpandedNavCat(ALL_SUPPLIERS_NAV_ID);
+      setExpandedNavGroup('by-supplier');
+      setExpandedNavCat(null);
       setSubFilter('All');
       setSearch(result.label);
       requestAnimationFrame(() => {
@@ -471,6 +516,18 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
 
   const activeLook = looks.find((l) => l.id === activeLookId) || looks[0];
   const activeNav = navCategories.find((n) => n.id === activeNavCat) || navCategories[0];
+  const activeBodyType = activeLook?.bodyType || 'woman';
+  const activeNavGroupMeta = NAV_GROUPS.find((g) => g.id === navGroupForCategoryId(activeNavCat));
+  const catalogTitle = activeNavCat === ALL_SUPPLIERS_NAV_ID
+    ? 'By Supplier'
+    : activeNavCat === ALL_BRANDS_NAV_ID
+      ? 'By Brand'
+      : activeNavGroupMeta && (activeNavGroupMeta.id === 'by-department' || activeNavGroupMeta.id === 'by-category')
+        ? `${activeNavGroupMeta.label} › ${activeNav.label}`
+        : activeNav.label;
+  const visibleSubFilters = activeNav.subFilters.filter(
+    (sub) => subFilterVisibleForBodyType(sub, activeBodyType),
+  );
   const productsById = useMemo(() => indexById(products), [products]);
 
   function selectProductColour(product, colour) {
@@ -548,6 +605,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
       if (isAllSuppliers) {
         if (!p.supplierCatalogId) return false;
         if (selectedSupplierIds.size > 0 && !selectedSupplierIds.has(p.supplierCatalogId)) return false;
+        if (!productMatchesBodyType(p, activeLook?.bodyType || 'woman')) return false;
         return true;
       }
       if (isAllBrands) {
@@ -555,6 +613,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
         const key = brandKey(p.brand);
         if (!key) return false;
         if (selectedBrandKeys.size > 0 && !selectedBrandKeys.has(key)) return false;
+        if (!productMatchesBodyType(p, activeLook?.bodyType || 'woman')) return false;
         return true;
       }
       if (!productMatchesNav(p, activeNav)) return false;
@@ -625,6 +684,24 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   const fmt = (v) => money(v, settings.currency);
 
   function num(v) { return Number(v) || 0; }
+
+  function switchBodyType(bodyTypeId) {
+    patchActiveLook({
+      bodyType: bodyTypeId,
+      productIds: activeLook.productIds.filter((id) => productMatchesBodyType(productsById[id], bodyTypeId)),
+    });
+    const active = navCategories.find((n) => n.id === activeNavCat);
+    if (active && !navItemVisibleForBodyType(active, bodyTypeId) && active.group === 'by-category') {
+      const fallback = navCategories.find((n) => n.group === 'by-category' && navItemVisibleForBodyType(n, bodyTypeId));
+      if (fallback) {
+        setActiveNavCat(fallback.id);
+        setExpandedNavCat(null);
+      }
+    }
+    if (subFilter !== 'All' && !subFilterVisibleForBodyType(subFilter, bodyTypeId)) {
+      setSubFilter('All');
+    }
+  }
 
   function patchActiveLook(patch) { setLooks(looks.map((l) => (l.id === activeLook.id ? { ...l, ...patch } : l))); }
 
@@ -701,7 +778,11 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
       setSearch('');
       const navId = catalogNavForProduct(normalised);
       setActiveNavCat(navId);
-      setExpandedNavCat(navId);
+      const group = navGroupForCategoryId(navId);
+      if (group) {
+        setExpandedNavGroup(group);
+        setExpandedNavCat(navId);
+      }
     }
     setShowAdmin(false);
   }
@@ -892,7 +973,8 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     setSettings(DEFAULT_SETTINGS);
     setActiveLookId(defaultLooks[0].id);
     setActiveNavCat(ALL_SUPPLIERS_NAV_ID);
-    setExpandedNavCat(ALL_SUPPLIERS_NAV_ID);
+    setExpandedNavGroup('by-supplier');
+    setExpandedNavCat(null);
     setSubFilter('All');
     setSelectedSupplierIds(new Set(importedSupplierCatalog.filter((s) => s.count > 0).map((s) => s.id)));
     setSelectedBrandKeys(catalogBrandKeys(defaultProducts));
@@ -1126,7 +1208,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
             <div className="gender-toggle">
               {bodyTypes.map((b) => (
                 <button key={b.id} type="button" className={`gender-btn ${activeLook.bodyType === b.id ? 'active' : ''}`}
-                  onClick={() => patchActiveLook({ bodyType: b.id, productIds: activeLook.productIds.filter((id) => productMatchesBodyType(productsById[id], b.id)) })}>
+                  onClick={() => switchBodyType(b.id)}>
                   {b.label}
                 </button>
               ))}
@@ -1158,31 +1240,31 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
               aria-expanded={uniformNavOpen}
             >
               <span className="num">3</span> Uniform
-              {!uniformNavOpen && <span className="nav-section-count">{navCategories.length}</span>}
+              {!uniformNavOpen && <span className="nav-section-count">{NAV_GROUPS.length}</span>}
               <ChevronDown size={13} className={`nav-section-chevron ${uniformNavOpen ? 'open' : ''}`} aria-hidden />
             </button>
-            {uniformNavOpen && navCategories.map((nc, i) => {
-              const prev = navCategories[i - 1];
-              const showLabel = nc.section && nc.section !== prev?.section;
-              const isExpanded = expandedNavCat === nc.id;
-              const isSupplierNav = nc.id === ALL_SUPPLIERS_NAV_ID;
-              const isBrandNav = nc.id === ALL_BRANDS_NAV_ID;
-              const hasSubcats = nc.subFilters.length > 1 || isSupplierNav || isBrandNav;
+            {uniformNavOpen && NAV_GROUPS.map((group) => {
+              const groupItems = navCategories.filter(
+                (nc) => nc.group === group.id && navItemVisibleForBodyType(nc, activeBodyType),
+              );
+              const isGroupExpanded = expandedNavGroup === group.id;
+              const isSupplierGroup = group.id === 'by-supplier';
+              const isBrandGroup = group.id === 'by-brand';
+              const groupActive = groupItems.some((nc) => nc.id === activeNavCat)
+                || (isSupplierGroup && activeNavCat === ALL_SUPPLIERS_NAV_ID)
+                || (isBrandGroup && activeNavCat === ALL_BRANDS_NAV_ID);
               return (
-                <div key={nc.id}>
-                  {showLabel && (
-                    <div className="nav-subsection-label">{NAV_SECTION_LABELS[nc.section]}</div>
-                  )}
-                  <button type="button" className={`nav-cat-btn ${activeNavCat === nc.id ? 'active' : ''}`}
-                    onClick={() => toggleNavCategory(nc.id)}
-                    aria-expanded={hasSubcats ? isExpanded : undefined}>
-                    <span className="nav-cat-icon">{NAV_ICONS[nc.id]}</span>
-                    <span className="nav-cat-label">{nc.label}</span>
-                    {hasSubcats && (
-                      <ChevronDown size={12} className={`nav-cat-chevron ${isExpanded ? 'open' : ''}`} aria-hidden />
-                    )}
+                <div key={group.id} className="nav-group-block">
+                  <button
+                    type="button"
+                    className={`nav-group-btn ${groupActive ? 'active' : ''}`}
+                    onClick={() => toggleNavGroup(group.id)}
+                    aria-expanded={isGroupExpanded}
+                  >
+                    <span className="nav-group-label">{group.label}</span>
+                    <ChevronDown size={12} className={`nav-cat-chevron ${isGroupExpanded ? 'open' : ''}`} aria-hidden />
                   </button>
-                  {isExpanded && isSupplierNav && (
+                  {isGroupExpanded && isSupplierGroup && (
                     <NavCheckboxFilter
                       items={bundledSuppliers}
                       selectedIds={selectedSupplierIds}
@@ -1192,7 +1274,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
                       ariaLabel="Filter by supplier"
                     />
                   )}
-                  {isExpanded && isBrandNav && (
+                  {isGroupExpanded && isBrandGroup && (
                     <NavCheckboxFilter
                       items={bundledBrands}
                       selectedIds={selectedBrandKeys}
@@ -1202,18 +1284,44 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
                       ariaLabel="Filter by brand"
                     />
                   )}
-                  {isExpanded && !isSupplierNav && nc.subFilters.length > 1 && (
-                    <div className="nav-subcat-list" role="group" aria-label={`${nc.label} categories`}>
-                      {nc.subFilters.map((sub) => (
-                        <button
-                          key={sub}
-                          type="button"
-                          className={`nav-subcat-btn ${subFilter === sub ? 'active' : ''}`}
-                          onClick={() => setSubFilter(sub)}
-                        >
-                          {sub}
-                        </button>
-                      ))}
+                  {isGroupExpanded && !isSupplierGroup && !isBrandGroup && (
+                    <div className="nav-group-children">
+                      {groupItems.map((nc) => {
+                        const isExpanded = expandedNavCat === nc.id;
+                        const hasSubcats = nc.subFilters.filter((s) => s !== 'All' && subFilterVisibleForBodyType(s, activeBodyType)).length > 0;
+                        return (
+                          <div key={nc.id}>
+                            <button
+                              type="button"
+                              className={`nav-cat-btn nav-cat-btn--nested ${activeNavCat === nc.id ? 'active' : ''}`}
+                              onClick={() => toggleNavCategory(nc.id)}
+                              aria-expanded={hasSubcats ? isExpanded : undefined}
+                            >
+                              <span className="nav-cat-icon">{NAV_ICONS[nc.id]}</span>
+                              <span className="nav-cat-label">{nc.label}</span>
+                              {hasSubcats && (
+                                <ChevronDown size={12} className={`nav-cat-chevron ${isExpanded ? 'open' : ''}`} aria-hidden />
+                              )}
+                            </button>
+                            {isExpanded && hasSubcats && (
+                              <div className="nav-subcat-list" role="group" aria-label={`${nc.label} categories`}>
+                                {nc.subFilters
+                                  .filter((sub) => subFilterVisibleForBodyType(sub, activeBodyType))
+                                  .map((sub) => (
+                                    <button
+                                      key={sub}
+                                      type="button"
+                                      className={`nav-subcat-btn ${subFilter === sub ? 'active' : ''}`}
+                                      onClick={() => setSubFilter(sub)}
+                                    >
+                                      {sub}
+                                    </button>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1266,7 +1374,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
               <div className="catalog-header">
                 <div className="catalog-title-row">
                   <h2>
-                    {activeNav.label}
+                    {catalogTitle}
                     {subFilter !== 'All' && (
                       <span className="catalog-breadcrumb"> › {subFilter}</span>
                     )}
@@ -1291,7 +1399,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
                   </div>
                 </div>
                 <div className="catalog-filters">
-                  {activeNav.subFilters.map((sub) => (
+                  {visibleSubFilters.map((sub) => (
                     <button key={sub} type="button" className={`filter-chip ${subFilter === sub ? 'active' : ''}`}
                       onClick={() => setSubFilter(sub)}>
                       {sub}
