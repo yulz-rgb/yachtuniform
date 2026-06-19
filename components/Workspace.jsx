@@ -15,7 +15,7 @@ import {
   navCategories, NAV_SECTION_LABELS, vessels, isDemoCatalog, productMatchesNav, productMatchesSubFilter, catalogNavForProduct,
   importedSupplierCatalog,
 } from '../lib/catalog';
-import { ALL_SUPPLIERS_NAV_ID } from '../lib/uniformTaxonomy';
+import { ALL_SUPPLIERS_NAV_ID, ALL_BRANDS_NAV_ID } from '../lib/uniformTaxonomy';
 import { normalizeCrewMember } from '../lib/crew';
 import { capabilitiesFor, canAdvance, STAGE_ACTOR } from '../lib/permissions';
 import { ModelPreview } from './ModelPreview';
@@ -61,7 +61,56 @@ const NAV_ICONS = {
   outerwear: '🌧️',
   accessories: '🧢',
   'all-suppliers': '📦',
+  'all-brands': '🏷️',
 };
+
+function brandKey(brand) {
+  return String(brand || '').trim().toLowerCase();
+}
+
+function catalogBrandKeys(productList) {
+  const keys = new Set();
+  for (const p of productList) {
+    if (!p.supplierCatalogId || p.active === false) continue;
+    const key = brandKey(p.brand);
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
+function NavCheckboxFilter({
+  items, selectedIds, onToggle, onSelectAll, onClearAll, ariaLabel,
+}) {
+  const allSelected = items.length > 0 && items.every((item) => selectedIds.has(item.id));
+  const noneSelected = items.every((item) => !selectedIds.has(item.id));
+  return (
+    <div className="nav-filter-list" role="group" aria-label={ariaLabel}>
+      <div className="nav-filter-actions">
+        <button type="button" className="nav-filter-action" onClick={onSelectAll} disabled={allSelected}>
+          Select all
+        </button>
+        <button type="button" className="nav-filter-action" onClick={onClearAll} disabled={noneSelected}>
+          Clear all
+        </button>
+      </div>
+      {items.map((item) => {
+        const checked = selectedIds.has(item.id);
+        return (
+          <label key={item.id} className={`nav-filter-item ${checked ? 'checked' : ''}`}>
+            <input
+              type="checkbox"
+              className="nav-filter-checkbox"
+              checked={checked}
+              onChange={() => onToggle(item.id)}
+            />
+            <span className="nav-filter-name">{item.name}</span>
+            <span className="nav-filter-count">{item.count.toLocaleString()}</span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
 const LOCAL_KEY = 'yachtUniform.workspace.v5';
 const CATALOG_VERSION_KEY = 'yachtUniform.catalogVersion';
 const CATALOG_VERSION = 'all-suppliers-v7';
@@ -192,6 +241,9 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   const [selectedSupplierIds, setSelectedSupplierIds] = useState(
     () => new Set(importedSupplierCatalog.filter((s) => s.count > 0).map((s) => s.id)),
   );
+  const [selectedBrandKeys, setSelectedBrandKeys] = useState(
+    () => catalogBrandKeys(defaultProducts),
+  );
   const [uniformNavOpen, setUniformNavOpen] = useState(true);
   const [subFilter, setSubFilter] = useState('All');
   const [search, setSearch] = useState('');
@@ -254,9 +306,42 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     });
   }
 
+  function toggleBrandFilter(brandId) {
+    setSelectedBrandKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(brandId)) next.delete(brandId);
+      else next.add(brandId);
+      return next;
+    });
+  }
+
   const bundledSuppliers = useMemo(
     () => importedSupplierCatalog.filter((s) => s.count > 0).sort((a, b) => a.name.localeCompare(b.name)),
     [],
+  );
+
+  const bundledBrands = useMemo(() => {
+    const counts = new Map();
+    const labels = new Map();
+    for (const p of products) {
+      if (!p.supplierCatalogId || p.active === false) continue;
+      const key = brandKey(p.brand);
+      if (!key) continue;
+      counts.set(key, (counts.get(key) || 0) + 1);
+      if (!labels.has(key)) labels.set(key, String(p.brand || '').trim());
+    }
+    return [...counts.entries()]
+      .map(([id, count]) => ({ id, name: labels.get(id), count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [products]);
+
+  const allSupplierIds = useMemo(
+    () => bundledSuppliers.map((s) => s.id),
+    [bundledSuppliers],
+  );
+  const allBrandIds = useMemo(
+    () => bundledBrands.map((b) => b.id),
+    [bundledBrands],
   );
 
   useEffect(() => {
@@ -452,6 +537,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
 
   const filteredProducts = useMemo(() => {
     const isAllSuppliers = activeNavCat === ALL_SUPPLIERS_NAV_ID;
+    const isAllBrands = activeNavCat === ALL_BRANDS_NAV_ID;
     let base = products.filter((p) => {
       if (p.active === false) return false;
       if (searchActive) {
@@ -462,6 +548,13 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
       if (isAllSuppliers) {
         if (!p.supplierCatalogId) return false;
         if (selectedSupplierIds.size > 0 && !selectedSupplierIds.has(p.supplierCatalogId)) return false;
+        return true;
+      }
+      if (isAllBrands) {
+        if (!p.supplierCatalogId) return false;
+        const key = brandKey(p.brand);
+        if (!key) return false;
+        if (selectedBrandKeys.size > 0 && !selectedBrandKeys.has(key)) return false;
         return true;
       }
       if (!productMatchesNav(p, activeNav)) return false;
@@ -492,7 +585,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     if (sortBy === 'price-desc') return [...base].sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
     if (sortBy === 'lead') return [...base].sort((a, b) => (parseLeadDays(a.leadTime) || 999) - (parseLeadDays(b.leadTime) || 999));
     return base;
-  }, [products, activeNavCat, activeNav, activeLook, subFilter, search, searchActive, sortBy, advancedFilters, roleFilter, selectedSupplierIds]);
+  }, [products, activeNavCat, activeNav, activeLook, subFilter, search, searchActive, sortBy, advancedFilters, roleFilter, selectedSupplierIds, selectedBrandKeys]);
 
   const platformResults = useMemo(
     () => searchPlatform({ products, looks, crew, orderHistory, query: platformQuery }),
@@ -504,6 +597,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   const catalogFilterSig = JSON.stringify([
     activeNavCat, subFilter, search, sortBy, advancedFilters, roleFilter, activeLook?.bodyType,
     [...selectedSupplierIds].sort(),
+    [...selectedBrandKeys].sort(),
   ]);
   if (catalogFilterSig !== prevCatalogFilterSig) {
     setPrevCatalogFilterSig(catalogFilterSig);
@@ -801,6 +895,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     setExpandedNavCat(ALL_SUPPLIERS_NAV_ID);
     setSubFilter('All');
     setSelectedSupplierIds(new Set(importedSupplierCatalog.filter((s) => s.count > 0).map((s) => s.id)));
+    setSelectedBrandKeys(catalogBrandKeys(defaultProducts));
     setOrder(null);
     setApprovalLog([]);
     try {
@@ -1071,7 +1166,8 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
               const showLabel = nc.section && nc.section !== prev?.section;
               const isExpanded = expandedNavCat === nc.id;
               const isSupplierNav = nc.id === ALL_SUPPLIERS_NAV_ID;
-              const hasSubcats = nc.subFilters.length > 1 || isSupplierNav;
+              const isBrandNav = nc.id === ALL_BRANDS_NAV_ID;
+              const hasSubcats = nc.subFilters.length > 1 || isSupplierNav || isBrandNav;
               return (
                 <div key={nc.id}>
                   {showLabel && (
@@ -1087,23 +1183,24 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
                     )}
                   </button>
                   {isExpanded && isSupplierNav && (
-                    <div className="nav-supplier-list" role="group" aria-label="Filter by supplier">
-                      {bundledSuppliers.map((supplier) => {
-                        const checked = selectedSupplierIds.has(supplier.id);
-                        return (
-                          <label key={supplier.id} className={`nav-supplier-item ${checked ? 'checked' : ''}`}>
-                            <input
-                              type="checkbox"
-                              className="nav-supplier-checkbox"
-                              checked={checked}
-                              onChange={() => toggleSupplierFilter(supplier.id)}
-                            />
-                            <span className="nav-supplier-name">{supplier.name}</span>
-                            <span className="nav-supplier-count">{supplier.count.toLocaleString()}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
+                    <NavCheckboxFilter
+                      items={bundledSuppliers}
+                      selectedIds={selectedSupplierIds}
+                      onToggle={toggleSupplierFilter}
+                      onSelectAll={() => setSelectedSupplierIds(new Set(allSupplierIds))}
+                      onClearAll={() => setSelectedSupplierIds(new Set())}
+                      ariaLabel="Filter by supplier"
+                    />
+                  )}
+                  {isExpanded && isBrandNav && (
+                    <NavCheckboxFilter
+                      items={bundledBrands}
+                      selectedIds={selectedBrandKeys}
+                      onToggle={toggleBrandFilter}
+                      onSelectAll={() => setSelectedBrandKeys(new Set(allBrandIds))}
+                      onClearAll={() => setSelectedBrandKeys(new Set())}
+                      ariaLabel="Filter by brand"
+                    />
                   )}
                   {isExpanded && !isSupplierNav && nc.subFilters.length > 1 && (
                     <div className="nav-subcat-list" role="group" aria-label={`${nc.label} categories`}>
