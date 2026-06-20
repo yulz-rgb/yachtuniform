@@ -50,15 +50,18 @@ def main() -> None:
     PREVIEW.mkdir(parents=True, exist_ok=True)
 
     pairs = [
-        ('model-woman-front.jpg', 'cutout-woman-front.png'),
-        ('model-woman-back.jpg', 'cutout-woman-back.png'),
-        ('model-man-front.jpg', 'cutout-man-front.png'),
-        ('model-man-back.jpg', 'cutout-man-back.png'),
+        ('model-woman-front', 'cutout-woman-front.png'),
+        ('model-woman-back', 'cutout-woman-back.png'),
+        ('model-man-front', 'cutout-man-front.png'),
+        ('model-man-back', 'cutout-man-back.png'),
     ]
-    for src_name, out_name in pairs:
-        src = PREVIEW / src_name
-        if not src.exists():
-            raise SystemExit(f'missing model asset: {src}')
+    for src_stem, out_name in pairs:
+        src = next(
+            (PREVIEW / f'{src_stem}{ext}' for ext in ('.png', '.jpg', '.jpeg') if (PREVIEW / f'{src_stem}{ext}').exists()),
+            None,
+        )
+        if src is None:
+            raise SystemExit(f'missing model asset: {src_stem}.png|.jpg')
         cutout_model(src).save(PREVIEW / out_name, optimize=True)
         print(f'wrote {out_name}')
 
