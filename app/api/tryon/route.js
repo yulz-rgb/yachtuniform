@@ -5,7 +5,7 @@ import { backendEnabled } from '../../../lib/config';
 const MAX_GARMENTS = 6;
 
 export async function POST(req) {
-  if (!hasAITryOn) {
+  if (!hasAITryOn()) {
     return Response.json({ error: 'AI try-on is not configured (missing GEMINI_API_KEY)' }, { status: 501 });
   }
 
