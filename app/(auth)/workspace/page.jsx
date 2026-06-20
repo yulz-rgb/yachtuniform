@@ -1,8 +1,8 @@
-import Workspace from '../../components/Workspace';
-import { backendEnabled, hasBlob } from '../../lib/config';
-import { getActiveContext } from '../../lib/auth';
-import { getWorkspace, getActiveOrder, listArtifacts, listMembers } from '../../lib/repository';
-import { can } from '../../lib/permissions';
+import Workspace from '../../../components/Workspace';
+import { backendEnabled, hasBlob } from '../../../lib/config';
+import { getActiveContext } from '../../../lib/auth';
+import { getWorkspace, getActiveOrder, listArtifacts, listMembers } from '../../../lib/repository';
+import { can } from '../../../lib/permissions';
 
 export const metadata = {
   title: 'Workspace — Yacht Uniform Lookbook',

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Anchor, ChevronDown, Download, FileDown, FileText, Filter, Menu, Plus,
+  Anchor, ChevronDown, Download, FileDown, FileText, Filter, Menu, Pencil, Plus,
   Search, Settings, Ship, SlidersHorizontal, Trash2, Upload,
   Wand2, X, CheckCircle2, PanelRight,
   Users, Lock,
@@ -267,6 +267,9 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     () => catalogBrandKeys(defaultProducts),
   );
   const [uniformNavOpen, setUniformNavOpen] = useState(true);
+  const [looksNavOpen, setLooksNavOpen] = useState(true);
+  const [editingLookId, setEditingLookId] = useState(null);
+  const [editingLookName, setEditingLookName] = useState('');
   const [subFilter, setSubFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [platformQuery, setPlatformQuery] = useState('');
@@ -303,6 +306,50 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   const sparseCatalogSynced = useRef(false);
   const platformSearchRef = useRef(null);
   const platformSearchWrapRef = useRef(null);
+  const lookEditActionRef = useRef(false);
+
+  function toggleLooksNav() {
+    setLooksNavOpen((open) => !open);
+  }
+
+  function startEditLookName(look) {
+    setEditingLookId(look.id);
+    setEditingLookName(look.name);
+  }
+
+  function cancelEditLookName({ fromBlur = false } = {}) {
+    if (fromBlur && lookEditActionRef.current) { lookEditActionRef.current = false; return; }
+    setEditingLookId(null);
+    setEditingLookName('');
+  }
+
+  function commitLookName({ fromBlur = false } = {}) {
+    if (fromBlur && lookEditActionRef.current) { lookEditActionRef.current = false; return; }
+    if (!editingLookId) return;
+    const trimmed = editingLookName.trim();
+    setLooks((prev) => prev.map((l) => (l.id === editingLookId ? { ...l, name: trimmed || l.name } : l)));
+    setEditingLookId(null);
+    setEditingLookName('');
+  }
+
+  function deleteLook(id) {
+    if (looks.length <= 1) return;
+    const look = looks.find((l) => l.id === id);
+    if (look && !window.confirm(`Delete "${look.name}"? This cannot be undone.`)) return;
+    const remaining = looks.filter((l) => l.id !== id);
+    setLooks(remaining);
+    setCrew((prev) => prev.map((member) => {
+      const nextAssigned = (member.assignedLooks || []).filter((lookId) => lookId !== id);
+      return {
+        ...member,
+        assignedLooks: nextAssigned,
+        assignedLook: member.assignedLook === id ? (nextAssigned[0] || '') : member.assignedLook,
+      };
+    }));
+    setCompareIds((prev) => prev.filter((cid) => cid !== id));
+    if (activeLookId === id) setActiveLookId(remaining[0].id);
+    if (editingLookId === id) cancelEditLookName();
+  }
 
   function toggleUniformNav() {
     if (uniformNavOpen) {
@@ -558,6 +605,16 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     (sub) => subFilterVisibleForBodyType(sub, activeBodyType),
   );
   const productsById = useMemo(() => indexById(products), [products]);
+  // Plain (unmemoized) on purpose: activeLook is a fresh `looks.find(...)` result
+  // every render, so a useMemo here never actually skips work, and the React
+  // Compiler lint rule can't prove activeLook/productsById are safe memo deps
+  // (see react-hooks/preserve-manual-memoization). The computation itself is
+  // a cheap array map over a single look's products, so recomputing per render
+  // costs nothing measurable.
+  const activeLookNormalized = normalizeLookItems(activeLook || {}, productsById);
+  const allocationByProductId = new Map(
+    (activeLookNormalized.items || []).map((item) => [item.productId, item]),
+  );
 
   function selectProductColour(product, colour) {
     setColourChoices((prev) => ({ ...prev, [product.id]: colour }));
@@ -568,17 +625,16 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     [colourChoices],
   );
 
-  const selectedProductsNormalized = normalizeLookItems(activeLook || {}, productsById);
-  const selectedProductsItemByProduct = new Map(
-    (selectedProductsNormalized.items || []).map((item) => [item.productId, item]),
-  );
-  const selectedProducts = (selectedProductsNormalized.productIds || [])
+  // Reuse the activeLookNormalized/allocationByProductId memos above instead of
+  // recomputing the same normalization a second time (was previously duplicated
+  // here, which also prevented the compiler from preserving either memo).
+  const selectedProducts = (activeLookNormalized.productIds || [])
     .map((id) => {
       const product = productsById[id];
       if (!product || !productMatchesBodyType(product, activeLook?.bodyType || 'woman')) return null;
       return {
         product: withProductColour(product, colourForProduct(product)),
-        allocation: selectedProductsItemByProduct.get(id) || {
+        allocation: allocationByProductId.get(id) || {
           productId: id,
           unitsPerPerson: 1,
           roleIds: [],
@@ -603,14 +659,6 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   const updateCrew = useCallback((nextCrew) => {
     setCrew(normalizeCrewList(nextCrew, looks, customRoleIdList));
   }, [looks, customRoleIdList]);
-  const activeLookNormalized = useMemo(
-    () => normalizeLookItems(activeLook || {}, productsById),
-    [activeLook, productsById],
-  );
-  const allocationByProductId = useMemo(
-    () => new Map((activeLookNormalized.items || []).map((item) => [item.productId, item])),
-    [activeLookNormalized],
-  );
 
   function productAllocationProps(productId, product) {
     const inLook = activeLookNormalized.productIds?.includes(productId);
@@ -1271,20 +1319,64 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
           </div>
 
           <div className="nav-section">
-            <div className="nav-section-title"><span className="num">2</span> Looks</div>
-            <button type="button" className="nav-add-btn" onClick={addLook}><Plus size={12} /> Add Look</button>
-            {looks.map((l) => (
-              <button key={l.id} type="button" className={`nav-look-btn ${l.id === activeLook.id ? 'active' : ''}`}
-                onClick={(e) => {
-                  if (e.shiftKey) { toggleCompareLook(l.id); return; }
-                  setActiveLookId(l.id);
-                }}>
-                <span className="nav-look-name">{l.name}</span>
-                <span className="nav-look-price">{fmt(lookTotals.find((lt) => lt.id === l.id)?.subtotal || 0)}</span>
-                {compareIds.includes(l.id) && <span className="dot" />}
-              </button>
-            ))}
-            <p style={{ fontSize: 10, color: 'rgba(255,255,255,.45)', padding: '6px 12px 0', margin: 0, lineHeight: 1.4 }}>Shift+click look to compare (up to 4)</p>
+            <button
+              type="button"
+              className="nav-section-title nav-section-toggle"
+              onClick={toggleLooksNav}
+              aria-expanded={looksNavOpen}
+            >
+              <span className="num">2</span> Looks
+              {!looksNavOpen && <span className="nav-section-count">{looks.length}</span>}
+              <ChevronDown size={13} className={`nav-section-chevron ${looksNavOpen ? 'open' : ''}`} aria-hidden />
+            </button>
+            {looksNavOpen && (
+              <>
+                <button type="button" className="nav-add-btn" onClick={addLook}><Plus size={12} /> Add Look</button>
+                {looks.map((l) => {
+                  const isEditing = editingLookId === l.id;
+                  return (
+                    <div key={l.id} className={`nav-look-row ${l.id === activeLook.id ? 'active' : ''}`}>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          className="nav-look-name-input"
+                          value={editingLookName}
+                          autoFocus
+                          onChange={(e) => setEditingLookName(e.target.value)}
+                          onBlur={() => commitLookName({ fromBlur: true })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); lookEditActionRef.current = true; commitLookName(); }
+                            if (e.key === 'Escape') { e.preventDefault(); lookEditActionRef.current = true; cancelEditLookName(); }
+                          }}
+                        />
+                      ) : (
+                        <button type="button" className="nav-look-btn"
+                          onClick={(e) => {
+                            if (e.shiftKey) { toggleCompareLook(l.id); return; }
+                            setActiveLookId(l.id);
+                          }}
+                          onDoubleClick={() => startEditLookName(l)}>
+                          <span className="nav-look-name">{l.name}</span>
+                          <span className="nav-look-price">{fmt(lookTotals.find((lt) => lt.id === l.id)?.subtotal || 0)}</span>
+                          {compareIds.includes(l.id) && <span className="dot" />}
+                        </button>
+                      )}
+                      <div className="nav-look-actions">
+                        <button type="button" className="nav-look-action-btn" title="Rename look"
+                          onClick={() => startEditLookName(l)}>
+                          <Pencil size={11} />
+                        </button>
+                        <button type="button" className="nav-look-action-btn nav-look-action-btn--danger" title="Delete look"
+                          disabled={looks.length <= 1} onClick={() => deleteLook(l.id)}>
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <p style={{ fontSize: 10, color: 'rgba(255,255,255,.45)', padding: '6px 12px 0', margin: 0, lineHeight: 1.4 }}>Shift+click look to compare (up to 4)</p>
+              </>
+            )}
           </div>
 
           <div className="nav-section nav-section--uniform">

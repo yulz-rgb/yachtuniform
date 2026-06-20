@@ -354,6 +354,38 @@ a:focus-visible {
 .nav-look-price { font-size: 10px; color: rgba(255,255,255,.38); font-weight: 600; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .nav-look-btn.active .nav-look-price { color: rgba(255,255,255,.6); }
 .nav-look-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-look-row {
+  display: flex; align-items: stretch; gap: 0;
+  border-left: 3px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  transition: all var(--tr);
+}
+.nav-look-row:hover { background: rgba(255,255,255,.07); border-left-color: rgba(201,162,39,.35); }
+.nav-look-row.active { background: rgba(255,255,255,.1); border-left-color: var(--gold); }
+.nav-look-row .nav-look-btn {
+  border-left: none; border-radius: 0; flex: 1; min-width: 0; background: transparent;
+}
+.nav-look-row:hover .nav-look-btn, .nav-look-row.active .nav-look-btn { background: transparent; }
+.nav-look-row.active .nav-look-btn { color: #fff; font-weight: 800; }
+.nav-look-actions {
+  display: flex; align-items: center; gap: 1px; padding-right: 6px;
+  opacity: 0; transition: opacity var(--tr);
+}
+.nav-look-row:hover .nav-look-actions, .nav-look-row.active .nav-look-actions { opacity: 1; }
+.nav-look-action-btn {
+  background: transparent; border: none; color: rgba(255,255,255,.4);
+  padding: 5px; border-radius: 4px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all var(--tr); flex-shrink: 0;
+}
+.nav-look-action-btn:hover { background: rgba(255,255,255,.12); color: #e2e8f0; }
+.nav-look-action-btn--danger:hover { color: #f87171; background: rgba(248,113,113,.12); }
+.nav-look-action-btn:disabled { opacity: .25; cursor: not-allowed; }
+.nav-look-action-btn:disabled:hover { background: transparent; color: rgba(255,255,255,.4); }
+.nav-look-name-input {
+  flex: 1; min-width: 0; background: rgba(255,255,255,.1); border: 1px solid rgba(201,162,39,.5);
+  color: #fff; font-size: 12px; font-weight: 700; padding: 9px 10px; border-radius: var(--radius-sm);
+  outline: none; margin: 2px 0 2px 3px;
+}
 .nav-add-btn {
   width: 100%; background: rgba(255,255,255,.06); border: 1px dashed rgba(255,255,255,.18);
   color: #94a3b8; border-radius: var(--radius-sm); padding: 8px;

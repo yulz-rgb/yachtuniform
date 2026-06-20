@@ -1,5 +1,5 @@
 import { SignIn } from '@clerk/nextjs';
-import { AuthBrandPanel } from '../../../components/AuthBrandPanel';
+import { AuthBrandPanel } from '../../../../components/AuthBrandPanel';
 
 export const metadata = { title: 'Sign in - Yacht Uniform Lookbook' };
 

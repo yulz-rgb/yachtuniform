@@ -36,3 +36,7 @@ uniform-crawler/__pycache__/
 uniform-crawler/*.pyc
 IMAGES/
 .env*
+
+# tool/session artifacts
+.claude/
+.gitdebris/

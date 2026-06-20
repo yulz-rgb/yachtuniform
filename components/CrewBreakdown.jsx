@@ -52,13 +52,19 @@ export function CrewBreakdown({
     [crew, roleOptions],
   );
   const [crewInput, setCrewInput] = useState(String(breakdown.totalCrew));
+  const [syncedTotalCrew, setSyncedTotalCrew] = useState(breakdown.totalCrew);
   const [open, setOpen] = useState(false);
   const [addRoleId, setAddRoleId] = useState('');
   const menuRef = useRef(null);
 
-  useEffect(() => {
+  // Keep the text input in sync with externally-driven changes to
+  // breakdown.totalCrew without a useEffect: adjusting state during
+  // render (rather than after commit) avoids the extra render pass
+  // an effect would cause. See https://react.dev/learn/you-might-not-need-an-effect
+  if (breakdown.totalCrew !== syncedTotalCrew) {
+    setSyncedTotalCrew(breakdown.totalCrew);
     setCrewInput(String(breakdown.totalCrew));
-  }, [breakdown.totalCrew]);
+  }
 
   useEffect(() => {
     if (!open) return undefined;

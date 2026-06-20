@@ -1,13 +1,27 @@
 // Clerk auth via the Next.js 16 proxy convention (formerly middleware).
-// Public marketing pages and demo are open; only the workspace and sensitive APIs require auth.
+// /demo and marketing pages skip Clerk entirely so automated reviewers can load
+// the lookbook without development-instance browser checks.
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { hasClerk } from './lib/config';
 
-const isPublicRoute = createRouteMatcher([
+const isClerkFreeRoute = createRouteMatcher([
   '/',
+  '/demo(.*)',
+  '/privacy(.*)',
+  '/terms(.*)',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/opengraph-image(.*)',
+  '/api/enquiry(.*)',
+  '/api/import/extract(.*)',
+  '/api/product-image(.*)',
+]);
+
+const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
+  '/',
   '/demo(.*)',
   '/privacy(.*)',
   '/terms(.*)',
@@ -32,6 +46,7 @@ const clerkHandler = clerkMiddleware(async (auth, req) => {
 
 export default function proxy(req, evt) {
   if (!hasClerk) return NextResponse.next();
+  if (isClerkFreeRoute(req)) return NextResponse.next();
   return clerkHandler(req, evt);
 }
 
