@@ -485,6 +485,19 @@ a:focus-visible {
   position: relative;
   isolation: isolate;
 }
+.preview-figure-stack::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 1%;
+  width: 46%;
+  height: 3%;
+  transform: translate(-50%, 35%);
+  background: radial-gradient(ellipse at center, rgba(8,22,38,.34) 0%, rgba(8,22,38,.16) 50%, transparent 78%);
+  filter: blur(3px);
+  z-index: 0;
+  pointer-events: none;
+}
 .preview-model-cutout {
   position: absolute;
   inset: 0;
@@ -516,7 +529,12 @@ a:focus-visible {
   display: block;
 }
 .preview-garment-img.is-keyed {
-  filter: drop-shadow(0 1px 3px rgba(10,37,64,.12));
+  filter:
+    drop-shadow(0 1px 2px rgba(8,22,38,.20))
+    drop-shadow(0 9px 14px rgba(8,22,38,.20))
+    saturate(1.04)
+    sepia(.035)
+    contrast(1.015);
 }
 .preview-garment-img:not(.is-keyed) {
   mix-blend-mode: multiply;

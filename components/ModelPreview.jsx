@@ -111,6 +111,7 @@ function GarmentLayer({
           objectFit: slot.fit || 'cover',
           objectPosition: slot.objectPosition || '50% 50%',
           transform: scale !== 1 ? `scale(${scale})` : undefined,
+          transformOrigin: slot.transformOrigin || 'center center',
         }}
       />
     </div>
