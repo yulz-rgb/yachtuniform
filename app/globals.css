@@ -458,17 +458,8 @@ a:focus-visible {
   border: 1px solid var(--line);
   display: block;
   box-shadow: var(--shadow-sm);
-  touch-action: none;
   flex-shrink: 0;
 }
-.preview-frame.has-yacht-bg {
-  background-color: #9ec2dc;
-  background-image: url('/preview/yacht-deck-panel.jpg');
-  background-size: cover;
-  background-position: center center;
-  background-repeat: no-repeat;
-}
-.preview-frame.no-bg { background: #f8fafc; background-image: none; }
 .preview-viewport {
   position: absolute;
   inset: 0;

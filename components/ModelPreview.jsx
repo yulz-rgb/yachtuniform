@@ -2,11 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
-  ZoomIn,
-  ZoomOut,
   RotateCw,
   Sun,
-  ImageOff,
   Move,
   ChevronUp,
   ChevronDown,
@@ -33,10 +30,6 @@ import {
 } from '../lib/previewAdjustments';
 import { fitProductImage } from '../lib/previewImage';
 import { productImageForColour, defaultProductColour } from '../lib/productColour';
-
-const MIN_ZOOM = 0.65;
-const MAX_ZOOM = 1.6;
-const ZOOM_STEP = 0.1;
 
 function GarmentLayer({
   product,
@@ -221,10 +214,8 @@ function AdjustPanel({
 }
 
 export function ModelPreview({ bodyType, selectedProducts = [] }) {
-  const [zoom, setZoom] = useState(1);
   const [view, setView] = useState('front');
   const [brightness, setBrightness] = useState(1);
-  const [showBackground, setShowBackground] = useState(true);
   const [fitScale, setFitScale] = useState(1);
   const [adjustMode, setAdjustMode] = useState(false);
   const adjustments = useSyncExternalStore(
@@ -234,11 +225,6 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
   );
   const [activeLayerId, setActiveLayerId] = useState(null);
   const frameRef = useRef(null);
-
-  const clampZoom = useCallback(
-    (value) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value)),
-    [],
-  );
 
   const figureSize = figureDimensions(bodyType, view);
   const layers = garmentLayers(bodyType, view, selectedProducts, adjustments);
@@ -269,20 +255,6 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
     return () => observer.disconnect();
   }, [figureSize.height]);
 
-  useLayoutEffect(() => {
-    const frame = frameRef.current;
-    if (!frame) return undefined;
-
-    const onWheel = (event) => {
-      if (adjustMode) return;
-      event.preventDefault();
-      setZoom((current) => clampZoom(current + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP)));
-    };
-
-    frame.addEventListener('wheel', onWheel, { passive: false });
-    return () => frame.removeEventListener('wheel', onWheel);
-  }, [adjustMode, clampZoom]);
-
   const handleNudge = useCallback((field, delta) => {
     if (!effectiveActiveLayerId) return;
     nudgePreviewAdjustment(effectiveActiveLayerId, bodyType, view, field, delta);
@@ -296,21 +268,14 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
     resetAllPreviewAdjustments();
   }, []);
 
-  const figureScale = fitScale * zoom;
   const modelSrc = cutoutSrc(bodyType, view);
 
   return (
     <div
       ref={frameRef}
-      className={`preview-frame ${showBackground ? 'has-yacht-bg' : 'no-bg'}${adjustMode ? ' is-adjusting' : ''}`}
+      className={`preview-frame${adjustMode ? ' is-adjusting' : ''}`}
     >
       <div className="preview-toolbar" role="toolbar" aria-label="Model preview controls">
-        <button type="button" className="preview-tool" onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))} title="Zoom out" aria-label="Zoom out">
-          <ZoomOut size={14} aria-hidden />
-        </button>
-        <button type="button" className="preview-tool" onClick={() => setZoom((z) => clampZoom(z + ZOOM_STEP))} title="Zoom in" aria-label="Zoom in">
-          <ZoomIn size={14} aria-hidden />
-        </button>
         <button
           type="button"
           className={`preview-tool ${view === 'back' ? 'active' : ''}`}
@@ -328,15 +293,6 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
           aria-label="Adjust brightness"
         >
           <Sun size={14} aria-hidden />
-        </button>
-        <button
-          type="button"
-          className={`preview-tool ${!showBackground ? 'active' : ''}`}
-          onClick={() => setShowBackground((s) => !s)}
-          title={showBackground ? 'Hide background' : 'Show background'}
-          aria-label={showBackground ? 'Hide background' : 'Show background'}
-        >
-          <ImageOff size={14} aria-hidden />
         </button>
         <button
           type="button"
@@ -370,7 +326,7 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
           style={{
             width: figureSize.width,
             height: figureSize.height,
-            transform: `scale(${figureScale})`,
+            transform: `scale(${fitScale})`,
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}

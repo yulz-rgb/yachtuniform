@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build transparent model cutouts and a clean yacht-deck panel background."""
+"""Build transparent model cutouts from source photos."""
 
 from __future__ import annotations
 
@@ -11,11 +11,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / '.venv-rembg'))
 
-from PIL import Image, ImageFilter
+from PIL import Image
 from rembg import new_session, remove  # noqa: E402
 
 PREVIEW = ROOT / 'public' / 'preview'
-PANEL_WIDTH_RATIO = 0.42
 
 
 @lru_cache(maxsize=1)
@@ -47,20 +46,8 @@ def cutout_model(src: Path) -> Image.Image:
     return img.crop(content_bbox(img))
 
 
-def build_deck_panel() -> Image.Image:
-    scene = Image.open(PREVIEW / 'yacht-deck-scene.jpg').convert('RGB')
-    w, h = scene.size
-    panel = scene.crop((0, 0, int(w * PANEL_WIDTH_RATIO), h))
-    # Soften the reference screenshot so the live cutout model reads clearly on top.
-    return panel.filter(ImageFilter.GaussianBlur(2.8))
-
-
 def main() -> None:
     PREVIEW.mkdir(parents=True, exist_ok=True)
-
-    deck_panel = build_deck_panel()
-    deck_panel.save(PREVIEW / 'yacht-deck-panel.jpg', quality=92, optimize=True)
-    print('wrote yacht-deck-panel.jpg')
 
     pairs = [
         ('model-woman-front.jpg', 'cutout-woman-front.png'),
