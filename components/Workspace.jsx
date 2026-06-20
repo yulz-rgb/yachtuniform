@@ -441,19 +441,21 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
 
   useEffect(() => {
     if (!products.length) return;
-    setLooks((prev) => {
-      const byId = indexById(products);
-      let changed = false;
-      const next = prev.map((look) => {
-        const normalized = normalizeLookItems(look, byId);
-        if (
-          JSON.stringify(normalized.items) !== JSON.stringify(look.items)
-          || JSON.stringify(normalized.productIds) !== JSON.stringify(look.productIds)
-        ) changed = true;
-        return normalized;
+    (() => {
+      setLooks((prev) => {
+        const byId = indexById(products);
+        let changed = false;
+        const next = prev.map((look) => {
+          const normalized = normalizeLookItems(look, byId);
+          if (
+            JSON.stringify(normalized.items) !== JSON.stringify(look.items)
+            || JSON.stringify(normalized.productIds) !== JSON.stringify(look.productIds)
+          ) changed = true;
+          return normalized;
+        });
+        return changed ? next : prev;
       });
-      return changed ? next : prev;
-    });
+    })();
   }, [products]);
 
   useEffect(() => {
@@ -558,25 +560,25 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     [colourChoices],
   );
 
-  const selectedProducts = useMemo(() => {
-    const normalized = normalizeLookItems(activeLook || {}, productsById);
-    const itemByProduct = new Map((normalized.items || []).map((item) => [item.productId, item]));
-    return (normalized.productIds || [])
-      .map((id) => {
-        const product = productsById[id];
-        if (!product || !productMatchesBodyType(product, activeLook?.bodyType || 'woman')) return null;
-        return {
-          product: withProductColour(product, colourForProduct(product)),
-          allocation: itemByProduct.get(id) || {
-            productId: id,
-            unitsPerPerson: 1,
-            roleIds: [],
-            spareQty: 0,
-          },
-        };
-      })
-      .filter(Boolean);
-  }, [productsById, activeLook, colourForProduct]);
+  const selectedProductsNormalized = normalizeLookItems(activeLook || {}, productsById);
+  const selectedProductsItemByProduct = new Map(
+    (selectedProductsNormalized.items || []).map((item) => [item.productId, item]),
+  );
+  const selectedProducts = (selectedProductsNormalized.productIds || [])
+    .map((id) => {
+      const product = productsById[id];
+      if (!product || !productMatchesBodyType(product, activeLook?.bodyType || 'woman')) return null;
+      return {
+        product: withProductColour(product, colourForProduct(product)),
+        allocation: selectedProductsItemByProduct.get(id) || {
+          productId: id,
+          unitsPerPerson: 1,
+          roleIds: [],
+          spareQty: 0,
+        },
+      };
+    })
+    .filter(Boolean);
 
   const roleOptions = useMemo(
     () => mergeRoleOptions(roles, settings.customRoles || []),
@@ -586,13 +588,9 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     () => new Set((settings.customRoles || []).map((role) => role.id)),
     [settings.customRoles],
   );
-  const activeLookNormalized = useMemo(
-    () => normalizeLookItems(activeLook || {}, productsById),
-    [activeLook, productsById],
-  );
-  const allocationByProductId = useMemo(
-    () => new Map((activeLookNormalized.items || []).map((item) => [item.productId, item])),
-    [activeLookNormalized],
+  const activeLookNormalized = normalizeLookItems(activeLook || {}, productsById);
+  const allocationByProductId = new Map(
+    (activeLookNormalized.items || []).map((item) => [item.productId, item]),
   );
 
   function productAllocationProps(productId, product) {
