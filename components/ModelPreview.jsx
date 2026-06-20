@@ -17,7 +17,10 @@ import {
   PREVIEW_FILL_RATIO,
   cutoutSrc,
   figureDimensions,
+  garmentAiLabel,
   garmentLayers,
+  modelPhotoDimensions,
+  resolvePreviewProducts,
 } from '../lib/previewAssets';
 import {
   subscribePreviewAdjustments,
@@ -30,6 +33,99 @@ import {
 } from '../lib/previewAdjustments';
 import { fitProductImage } from '../lib/previewImage';
 import { productImageForColour, defaultProductColour } from '../lib/productColour';
+import {
+  subscribeAiTryOn,
+  getAiTryOnEntry,
+  getAiTryOnServerSnapshot,
+  setAiTryOnEntry,
+  isAiTryOnUnavailable,
+  markAiTryOnUnavailable,
+} from '../lib/aiTryOnClient';
+
+const AI_DEBOUNCE_MS = 500;
+
+function garmentSignature(previewProducts) {
+  return previewProducts
+    .map((p) => productImageForColour(p, defaultProductColour(p)))
+    .filter(Boolean)
+    .sort()
+    .join('|');
+}
+
+/** Drives the real AI clothing-fit render: posts the model + garment photos to
+ * /api/tryon and returns a single photorealistic composite, replacing the
+ * manual layered-overlay approach whenever the AI service is available.
+ * Results live in the lib/aiTryOnClient external store (not component state) so
+ * the async fetch below never needs to call a React setState inside an effect. */
+function useAiTryOn(bodyType, view, previewProducts) {
+  const signature = garmentSignature(previewProducts);
+  const key = signature ? `${bodyType}|${view}|${signature}` : null;
+
+  const entry = useSyncExternalStore(
+    subscribeAiTryOn,
+    () => getAiTryOnEntry(key),
+    getAiTryOnServerSnapshot,
+  );
+
+  // Kept in a ref (not an effect dependency) so re-renders that don't change the
+  // garment signature never reset the debounce timer below.
+  const previewProductsRef = useRef(previewProducts);
+  useEffect(() => {
+    previewProductsRef.current = previewProducts;
+  });
+
+  useEffect(() => {
+    if (isAiTryOnUnavailable() || !key) return undefined;
+    if (getAiTryOnEntry(key).src) return undefined; // already resolved/cached
+
+    let alive = true;
+    const controller = new AbortController();
+
+    const timer = setTimeout(async () => {
+      setAiTryOnEntry(key, { loading: true });
+
+      const garments = previewProductsRef.current
+        .map((product) => ({
+          imageUrl: productImageForColour(product, defaultProductColour(product)),
+          name: product.name,
+          label: garmentAiLabel(product),
+        }))
+        .filter((g) => g.imageUrl);
+
+      try {
+        const res = await fetch('/api/tryon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bodyType, view, garments }),
+          signal: controller.signal,
+        });
+
+        if (res.status === 501) {
+          markAiTryOnUnavailable();
+          if (alive) setAiTryOnEntry(key, { src: null, loading: false });
+          return;
+        }
+        if (!res.ok) throw new Error('AI try-on request failed');
+
+        const data = await res.json();
+        if (!alive) return;
+        setAiTryOnEntry(key, { src: data.image, loading: false });
+      } catch (err) {
+        if (alive && err.name !== 'AbortError') {
+          setAiTryOnEntry(key, { loading: false });
+        }
+      }
+    }, AI_DEBOUNCE_MS);
+
+    return () => {
+      alive = false;
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [bodyType, view, signature, key]);
+
+  return entry;
+}
 
 function GarmentLayer({
   product,
@@ -228,6 +324,15 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
 
   const figureSize = figureDimensions(bodyType, view);
   const layers = garmentLayers(bodyType, view, selectedProducts, adjustments);
+  const previewProducts = resolvePreviewProducts(selectedProducts, bodyType);
+  const aiTryOn = useAiTryOn(bodyType, view, previewProducts);
+  const aiActive = Boolean(aiTryOn.src);
+  // The AI render is a single photo with its own native framing, distinct from
+  // the cutout silhouette used by the manual overlay fallback below.
+  const activeSize = aiActive ? modelPhotoDimensions(bodyType, view) : figureSize;
+  // Fit adjustment only applies to the CSS-overlay fallback; once a real AI
+  // render is showing there is nothing to nudge.
+  const adjustModeActive = adjustMode && !aiActive;
 
   // Derive the effective selection during render instead of syncing it via an effect.
   // `activeLayerId` is the user's explicit pick; when it is unset or no longer present
@@ -246,14 +351,14 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
 
     const updateFit = () => {
       const targetHeight = frame.clientHeight * PREVIEW_FILL_RATIO;
-      setFitScale(targetHeight / figureSize.height);
+      setFitScale(targetHeight / activeSize.height);
     };
 
     updateFit();
     const observer = new ResizeObserver(updateFit);
     observer.observe(frame);
     return () => observer.disconnect();
-  }, [figureSize.height]);
+  }, [activeSize.height]);
 
   const handleNudge = useCallback((field, delta) => {
     if (!effectiveActiveLayerId) return;
@@ -273,7 +378,7 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
   return (
     <div
       ref={frameRef}
-      className={`preview-frame${adjustMode ? ' is-adjusting' : ''}`}
+      className={`preview-frame${adjustModeActive ? ' is-adjusting' : ''}`}
     >
       <div className="preview-toolbar" role="toolbar" aria-label="Model preview controls">
         <button
@@ -294,19 +399,21 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
         >
           <Sun size={14} aria-hidden />
         </button>
-        <button
-          type="button"
-          className={`preview-tool ${adjustMode ? 'active' : ''}`}
-          onClick={() => setAdjustMode((mode) => !mode)}
-          title={adjustMode ? 'Exit fit adjustment' : 'Adjust garment fit'}
-          aria-label={adjustMode ? 'Exit fit adjustment' : 'Adjust garment fit'}
-          aria-pressed={adjustMode}
-        >
-          <Move size={14} aria-hidden />
-        </button>
+        {aiActive ? null : (
+          <button
+            type="button"
+            className={`preview-tool ${adjustMode ? 'active' : ''}`}
+            onClick={() => setAdjustMode((mode) => !mode)}
+            title={adjustMode ? 'Exit fit adjustment' : 'Adjust garment fit'}
+            aria-label={adjustMode ? 'Exit fit adjustment' : 'Adjust garment fit'}
+            aria-pressed={adjustMode}
+          >
+            <Move size={14} aria-hidden />
+          </button>
+        )}
       </div>
 
-      {adjustMode ? (
+      {adjustMode && !aiActive ? (
         <AdjustPanel
           layers={layers}
           activeLayerId={effectiveActiveLayerId}
@@ -321,32 +428,50 @@ export function ModelPreview({ bodyType, selectedProducts = [] }) {
         className="preview-viewport"
         style={{ filter: brightness !== 1 ? `brightness(${brightness})` : undefined }}
       >
-        <div
-          className={`preview-figure-stack view-${view}`}
-          style={{
-            width: figureSize.width,
-            height: figureSize.height,
-            transform: `scale(${fitScale})`,
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={modelSrc}
-            alt=""
-            className="preview-model-cutout"
-            draggable={false}
-          />
-          {layers.map(({ product, slot }) => (
-            <GarmentLayer
-              key={product.id}
-              product={product}
-              slot={slot}
-              adjustMode={adjustMode}
-              isAdjustTarget={adjustMode && product.id === effectiveActiveLayerId}
-              onSelect={setActiveLayerId}
+        {aiActive ? (
+          <div
+            className="preview-figure-stack preview-ai-frame"
+            style={{
+              width: activeSize.width,
+              height: activeSize.height,
+              transform: `scale(${fitScale})`,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={aiTryOn.src} alt="" className="preview-ai-image" draggable={false} />
+            {aiTryOn.loading ? <div className="preview-ai-status">Updating fit…</div> : null}
+          </div>
+        ) : (
+          <div
+            className={`preview-figure-stack view-${view}`}
+            style={{
+              width: activeSize.width,
+              height: activeSize.height,
+              transform: `scale(${fitScale})`,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={modelSrc}
+              alt=""
+              className="preview-model-cutout"
+              draggable={false}
             />
-          ))}
-        </div>
+            {layers.map(({ product, slot }) => (
+              <GarmentLayer
+                key={product.id}
+                product={product}
+                slot={slot}
+                adjustMode={adjustModeActive}
+                isAdjustTarget={adjustModeActive && product.id === effectiveActiveLayerId}
+                onSelect={setActiveLayerId}
+              />
+            ))}
+            {aiTryOn.loading && previewProducts.length ? (
+              <div className="preview-ai-status">Generating AI try-on…</div>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   );

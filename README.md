@@ -65,7 +65,11 @@ npm run build
 - `lib/auth.js` — Clerk user sync + active-yacht resolution + membership guards.
 - `app/actions.js` — server actions (save workspace, switch yacht, approvals).
 - `app/api/import` — catalog CSV validate/import. `app/api/upload` — Blob image upload.
-- `prisma/schema.prisma` — full data model. `prisma/migrations` — migration history.
+- `app/api/tryon` — AI virtual try-on render. `prisma/schema.prisma` — full data model. `prisma/migrations` — migration history.
+
+## AI virtual try-on
+
+Set `GEMINI_API_KEY` (Google AI Studio) to enable photorealistic try-on: selected garments are composited onto the model photo with Gemini 2.5 Flash Image (`lib/aiTryOn.js`) instead of a flat CSS overlay, so they fit the model's real pose and proportions. Results are cached server-side per body/view/garment combination to limit API spend. Without the key, the preview falls back automatically to the existing layered cutout overlay — no other configuration needed.
 
 ## Catalog import
 
