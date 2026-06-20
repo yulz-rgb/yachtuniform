@@ -32,6 +32,7 @@ import { ProductListRow } from './ProductListRow';
 import { ProductEditor } from './ProductEditor';
 import { CatalogImport } from './CatalogImport';
 import { CrewImport } from './CrewImport';
+import { CrewBreakdown } from './CrewBreakdown';
 import { TeamPanel } from './TeamPanel';
 import { ProductAttribution } from './ProductAttribution';
 import { ProductSpecs } from './ProductSpecs';
@@ -132,7 +133,7 @@ function NavCheckboxFilter({
 }
 const LOCAL_KEY = 'yachtUniform.workspace.v5';
 const CATALOG_VERSION_KEY = 'yachtUniform.catalogVersion';
-const CATALOG_VERSION = 'all-suppliers-v7';
+const CATALOG_VERSION = 'all-suppliers-v8';
 const ORDER_HISTORY_KEY = 'yachtUniform.orders.v1';
 const CATALOG_PAGE_SIZE = 96;
 
@@ -184,9 +185,9 @@ function createEmptyProduct(currency = 'EUR') {
   };
 }
 
-function normalizeCrewList(crew = [], looks = []) {
+function normalizeCrewList(crew = [], looks = [], extraRoleIds = []) {
   const lookNameToId = new Map(looks.map((l) => [l.name, l.id]));
-  return crew.map((c) => normalizeCrewMember(c, lookNameToId));
+  return crew.map((c) => normalizeCrewMember(c, lookNameToId, extraRoleIds));
 }
 
 function productMatchesRole(product, role) {
@@ -251,6 +252,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   const [crew, setCrew] = useState(() => normalizeCrewList(
     initialData?.crew?.length ? initialData.crew : defaultCrew,
     initialData?.looks?.length ? initialData.looks : defaultLooks,
+    (initialData?.settings?.customRoles || []).map((role) => role.id),
   ));
   const [settings, setSettings] = useState({ ...DEFAULT_SETTINGS, ...(initialData?.settings || {}) });
 
@@ -410,7 +412,13 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
         /* eslint-disable react-hooks/set-state-in-effect */
         setProducts(nextProducts);
         if (data.looks) setLooks(data.looks);
-        if (data.crew) setCrew(normalizeCrewList(data.crew, data.looks || looks));
+        if (data.crew) {
+          setCrew(normalizeCrewList(
+            data.crew,
+            data.looks || looks,
+            (data.settings?.customRoles || settings.customRoles || []).map((role) => role.id),
+          ));
+        }
         if (data.settings) setSettings({ ...DEFAULT_SETTINGS, ...data.settings });
         if (data.orderHistory) setOrderHistory(data.orderHistory);
         if (data.approvalLog) setApprovalLog(data.approvalLog);
@@ -588,9 +596,20 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
     () => new Set((settings.customRoles || []).map((role) => role.id)),
     [settings.customRoles],
   );
-  const activeLookNormalized = normalizeLookItems(activeLook || {}, productsById);
-  const allocationByProductId = new Map(
-    (activeLookNormalized.items || []).map((item) => [item.productId, item]),
+  const customRoleIdList = useMemo(
+    () => (settings.customRoles || []).map((role) => role.id),
+    [settings.customRoles],
+  );
+  const updateCrew = useCallback((nextCrew) => {
+    setCrew(normalizeCrewList(nextCrew, looks, customRoleIdList));
+  }, [looks, customRoleIdList]);
+  const activeLookNormalized = useMemo(
+    () => normalizeLookItems(activeLook || {}, productsById),
+    [activeLook, productsById],
+  );
+  const allocationByProductId = useMemo(
+    () => new Map((activeLookNormalized.items || []).map((item) => [item.productId, item])),
+    [activeLookNormalized],
   );
 
   function productAllocationProps(productId, product) {
@@ -871,7 +890,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   }
 
   function mergeImportedCrew(imported) {
-    setCrew(normalizeCrewList([...crew, ...imported], looks));
+    setCrew(normalizeCrewList([...crew, ...imported], looks, customRoleIdList));
     setShowCrewImport(false);
     setShowCrewMgmt(true);
   }
@@ -927,7 +946,13 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
         const data = JSON.parse(reader.result);
         if (data.products) setProducts(data.products);
         if (data.looks) setLooks(data.looks);
-        if (data.crew) setCrew(normalizeCrewList(data.crew, data.looks || looks));
+        if (data.crew) {
+          setCrew(normalizeCrewList(
+            data.crew,
+            data.looks || looks,
+            (data.settings?.customRoles || settings.customRoles || []).map((role) => role.id),
+          ));
+        }
         if (data.settings) setSettings({ ...DEFAULT_SETTINGS, ...data.settings });
       } catch { alert('Invalid JSON file'); }
     };
@@ -999,7 +1024,7 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
   const resetDemo = () => {
     setProducts([...defaultProducts]);
     setLooks(defaultLooks);
-    setCrew(normalizeCrewList(defaultCrew, defaultLooks));
+    setCrew(normalizeCrewList(defaultCrew, defaultLooks, customRoleIdList));
     setSettings(DEFAULT_SETTINGS);
     setActiveLookId(defaultLooks[0].id);
     setActiveNavCat(ALL_SUPPLIERS_NAV_ID);
@@ -1563,7 +1588,15 @@ export default function Workspace({ mode = 'local', initialData = null, authInfo
             <aside className={`right-panel no-print ${rightPanelOpen ? 'open' : ''}`}>
               <div className="panel-block">
                 <h3>Budget Calculator</h3>
-                <div className="budget-row"><label>Crew Members</label><span style={{ fontWeight: 800 }}>{crew.length}</span></div>
+                <CrewBreakdown
+                  crew={crew}
+                  looks={looks}
+                  settings={settings}
+                  roleOptions={roleOptions}
+                  customRoleIds={customRoleIds}
+                  onCrewChange={updateCrew}
+                  disabled={!canEdit}
+                />
                 <div className="budget-row"><label>Default sets per crew</label><input className="budget-input" type="number" min="1" value={settings.setsPerCrew} onChange={(e) => patchSettings({ setsPerCrew: Number(e.target.value) })} /></div>
                 <div className="budget-row"><label>Logo / Embroidery per item</label><input className="budget-input" type="number" value={settings.logoCost} onChange={(e) => patchSettings({ logoCost: Number(e.target.value) })} /></div>
                 {!budget.usesItemAllocations && (
